@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>KOMPASS EOD System v2.0</title>
+    
+    <!-- Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+    
+    <style>
+        :root {
+            --primary: #0d4f8b;
+            --primary-hover: #1e66ab;
+            --secondary: #4b5563;
+            --success: #56ab2f;
+            --danger: #dc2626;
+            --background: #374151;
+            --surface: #111827;
+            --surface-alt: #020617;
+            --text-main: #f9fafb;
+            --text-muted: #d1d5db;
+            --accent: #88c4ed;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--background);
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* App-like feel */
+        }
+
+        /* --- Layout & Header --- */
+        .app-header {
+            background: var(--surface);
+            padding: 15px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            z-index: 10;
+            flex-shrink: 0;
+        }
+
+        .header-logo { max-height: 40px; margin-bottom: 5px; }
+        .app-title { color: var(--accent); font-size: 1.1rem; font-weight: 700; margin: 0; }
+
+        .progress-bar-container {
+            background: var(--surface-alt);
+            height: 6px;
+            width: 100%;
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background: var(--accent);
+            width: 25%;
+            transition: width 0.3s ease;
+        }
+
+        /* --- Main Content Area --- */
+        .main-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            padding-bottom: 80px; /* Space for nav */
+            position: relative;
+        }
+
+        .step-container { display: none; animation: fadeIn 0.3s ease; }
+        .step-container.active { display: block; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .section-card {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 4px solid var(--primary);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+
+        .section-title {
+            color: var(--accent);
+            font-size: 1.1em;
+            font-weight: 600;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid var(--secondary);
+        }
+
+        /* --- Forms --- */
+        .field-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 6px; color: var(--text-muted); font-size: 0.9rem; font-weight: 600; }
+        
+        input[type="text"], input[type="date"], input[type="email"], textarea, select {
+            width: 100%;
+            padding: 12px;
+            background: var(--surface-alt);
+            border: 1px solid var(--secondary);
+            border-radius: 8px;
+            color: white;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); }
+        input.error, textarea.error { border-color: var(--danger); }
+        .error-msg { color: var(--danger); font-size: 0.8rem; margin-top: 4px; display: none; }
+        input.error + .error-msg { display: block; }
+
+        /* --- Toggle Buttons (Radios) --- */
+        .toggle-group { display: flex; gap: 10px; background: var(--surface-alt); padding: 4px; border-radius: 8px; }
+        .toggle-option { flex: 1; text-align: center; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: 600; color: var(--text-muted); transition: all 0.2s; }
+        .toggle-option.selected { background: var(--primary); color: white; shadow: 0 2px 4px rgba(0,0,0,0.2); }
+
+        /* --- Photos --- */
+        .photo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .photo-slot {
+            aspect-ratio: 1;
+            background: var(--surface-alt);
+            border: 2px dashed var(--secondary);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .photo-slot img { width: 100%; height: 100%; object-fit: cover; }
+        
+        .photo-actions {
+            position: absolute; inset: 0; background: rgba(0,0,0,0.6);
+            display: none; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+        }
+        .photo-slot:hover .photo-actions { display: flex; }
+        
+        .mini-btn { padding: 6px 12px; border-radius: 4px; border: none; cursor: pointer; font-size: 0.8rem; color: white; }
+        .btn-edit { background: var(--primary); }
+        .btn-delete { background: var(--danger); }
+
+        .add-photo-btn { flex-direction: column; gap: 5px; color: var(--accent); text-align: center; padding: 5px; }
+        .add-photo-btn span { font-size: 2rem; }
+
+        /* --- Signature --- */
+        .sig-pad-container { background: white; border-radius: 8px; height: 200px; position: relative; touch-action: none; }
+        canvas#sigCanvas { width: 100%; height: 100%; display: block; }
+        .sig-overlay-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #ccc; pointer-events: none; }
+
+        /* --- Navigation Footer --- */
+        .nav-footer {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: var(--surface);
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+            z-index: 100;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-secondary { background: var(--secondary); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* --- Fullscreen Overlays (Camera/Editor) --- */
+        .overlay {
+            position: fixed; inset: 0; background: black; z-index: 1000;
+            display: none; flex-direction: column;
+        }
+        .overlay.active { display: flex; }
+
+        /* Camera Specifics */
+        .cam-view { flex: 1; position: relative; background: #000; }
+        video#cameraFeed { width: 100%; height: 100%; object-fit: cover; }
+        .cam-controls {
+            height: 120px; background: rgba(0,0,0,0.8);
+            display: flex; align-items: center; justify-content: center; position: relative;
+        }
+        .shutter-btn {
+            width: 70px; height: 70px; border-radius: 50%;
+            background: white; border: 4px solid var(--secondary);
+            cursor: pointer; z-index: 2;
+        }
+        .shutter-btn:active { transform: scale(0.95); background: #ddd; }
+        
+        .cam-tools {
+            position: absolute; top: 20px; left: 0; right: 0; padding: 0 20px;
+            display: flex; justify-content: space-between; z-index: 10;
+        }
+        .tool-btn { background: rgba(0,0,0,0.5); color: white; border: none; padding: 8px 12px; border-radius: 20px; font-size: 0.9rem; }
+        
+        .zoom-container {
+            position: absolute; bottom: 140px; left: 50%; transform: translateX(-50%);
+            width: 80%; display: flex; gap: 10px; align-items: center; color: white; z-index: 10;
+        }
+        input[type=range] { flex: 1; accent-color: var(--primary); }
+
+        /* Editor Specifics */
+        .editor-stage { flex: 1; background: #111; position: relative; }
+        .editor-controls {
+            padding: 15px; background: var(--surface);
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+        }
+
+        /* Modals */
+        .modal-backdrop {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 2000;
+            display: none; align-items: center; justify-content: center;
+        }
+        .modal-box {
+            background: var(--surface); padding: 25px; border-radius: 12px;
+            width: 90%; max-width: 400px; text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="app-header">
+        <img src="rologo.png" alt="Logo" class="header-logo" onerror="this.style.display='none'">
+        <h1 class="app-title">KOMPASS EOD System</h1>
+    </header>
+    
+    <div class="progress-bar-container">
+        <div class="progress-bar-fill" id="progressBar"></div>
+    </div>
+
+    <!-- Main Content Steps -->
+    <main class="main-content">
+        
+        <!-- STEP 1: IDENTIFICATION -->
+        <div id="step1" class="step-container active">
+            <div class="section-card">
+                <div class="section-title">Step 1: Identification</div>
+                
+                <div class="field-group">
+                    <label>Store Number *</label>
+                    <input type="text" id="storeNumber" placeholder="###" inputmode="numeric" maxlength="3">
+                    <div class="error-msg">Enter 3-digit store number</div>
+                </div>
+
+                <div class="field-group">
+                    <label>Date *</label>
+                    <input type="date" id="workDate">
+                    <div class="error-msg">Date cannot be in the future</div>
+                </div>
+
+                <div class="field-group">
+                    <label>Lead Name *</label>
+                    <input type="text" id="leadName" placeholder="First Last">
+                    <div class="error-msg">Lead name required</div>
+                </div>
+
+                <div class="field-group">
+                    <label>Manager Checked In With *</label>
+                    <input type="text" id="checkInManager">
+                    <div class="error-msg">Manager name required</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 2: PHOTOS -->
+        <div id="step2" class="step-container">
+            <div class="section-card">
+                <div class="section-title">Step 2: Photos</div>
+                <p style="color: var(--text-muted); font-size: 0.9em; margin-bottom: 15px;">
+                    Required: 1 Before, 1 After, 1 Sign-off Sheet.
+                </p>
+
+                <!-- Before -->
+                <div class="field-group">
+                    <label>KOMPASS Cart - Before *</label>
+                    <div class="photo-grid" id="grid-before">
+                        <div class="photo-slot add-photo-btn" onclick="launchCamera('before')">
+                            <span>📷</span><div>Cam</div>
+                        </div>
+                        <div class="photo-slot add-photo-btn" onclick="document.getElementById('file-before').click()">
+                            <span>📁</span><div>File</div>
+                        </div>
+                    </div>
+                    <input type="file" id="file-before" hidden accept="image/*" onchange="handleFileUpload(this, 'before')">
+                    <div class="error-msg" id="err-before">At least 1 Before photo required</div>
+                </div>
+
+                <!-- After -->
+                <div class="field-group">
+                    <label>KOMPASS Cart - After *</label>
+                    <div class="photo-grid" id="grid-after">
+                        <div class="photo-slot add-photo-btn" onclick="launchCamera('after')">
+                            <span>📷</span><div>Cam</div>
+                        </div>
+                        <div class="photo-slot add-photo-btn" onclick="document.getElementById('file-after').click()">
+                            <span>📁</span><div>File</div>
+                        </div>
+                    </div>
+                    <input type="file" id="file-after" hidden accept="image/*" onchange="handleFileUpload(this, 'after')">
+                    <div class="error-msg" id="err-after">At least 1 After photo required</div>
+                </div>
+
+                <!-- Signoff -->
+                <div class="field-group">
+                    <label>Sign-Off Sheets *</label>
+                    <div class="photo-grid" id="grid-signoff">
+                        <div class="photo-slot add-photo-btn" onclick="launchCamera('signoff')">
+                            <span>📷</span><div>Cam</div>
+                        </div>
+                        <div class="photo-slot add-photo-btn" onclick="document.getElementById('file-signoff').click()">
+                            <span>📁</span><div>File</div>
+                        </div>
+                    </div>
+                    <input type="file" id="file-signoff" hidden accept="image/*" multiple onchange="handleFileUpload(this, 'signoff')">
+                    <div class="error-msg" id="err-signoff">Sign-off sheet photo required</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 3: ISSUES & DETAILS -->
+        <div id="step3" class="step-container">
+            <div class="section-card">
+                <div class="section-title">Step 3: Issues & EOD</div>
+
+                <!-- Hotline Logic -->
+                <div class="field-group">
+                    <label>Did you call KOMPASS Hotline? *</label>
+                    <div class="toggle-group" id="tg-hotline">
+                        <div class="toggle-option" onclick="setToggle('hotline', true)">Yes</div>
+                        <div class="toggle-option selected" onclick="setToggle('hotline', false)">No</div>
+                    </div>
+                </div>
+
+                <div id="hotline-fields" style="display:none; border-left: 2px solid var(--accent); padding-left: 10px; margin-bottom: 15px;">
+                    <div class="field-group">
+                        <label>Commodities *</label>
+                        <input type="text" id="commodities">
+                    </div>
+                    <div class="field-group">
+                        <label>Issue Description *</label>
+                        <textarea id="issueDesc" rows="2"></textarea>
+                    </div>
+                    <div class="field-group">
+                        <label>Resolved? *</label>
+                        <select id="issueResolved">
+                            <option value="Yes">Yes</option>
+                            <option value="No">No</option>
+                            <option value="NA">N/A</option>
+                        </select>
+                    </div>
+                    <div class="field-group" id="tempSolutionGroup" style="display:none;">
+                        <label>Temporary Solution *</label>
+                        <textarea id="tempSolution" rows="2"></textarea>
+                    </div>
+                </div>
+
+                <div class="field-group">
+                    <label>Manager Checked Out With *</label>
+                    <input type="text" id="checkOutManager">
+                    <div class="error-msg">Required</div>
+                </div>
+
+                <div class="field-group">
+                    <label>Signed out in PROD? *</label>
+                    <div class="toggle-group" id="tg-prod">
+                        <div class="toggle-option" onclick="setToggle('prod', true)">Yes</div>
+                        <div class="toggle-option selected" onclick="setToggle('prod', false)">No</div>
+                    </div>
+                </div>
+
+                <div class="field-group">
+                    <label>Signed out in SI? *</label>
+                    <div class="toggle-group" id="tg-si">
+                        <div class="toggle-option" onclick="setToggle('si', true)">Yes</div>
+                        <div class="toggle-option selected" onclick="setToggle('si', false)">No</div>
+                    </div>
+                </div>
+
+                <div class="field-group">
+                    <label>General Notes</label>
+                    <textarea id="notes" rows="3" placeholder="Optional notes..."></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- STEP 4: REVIEW & SIGN -->
+        <div id="step4" class="step-container">
+            <div class="section-card">
+                <div class="section-title">Step 4: Review & Sign</div>
+                
+                <div class="field-group">
+                    <label>Email To (Optional)</label>
+                    <input type="email" id="emailTo" placeholder="manager@example.com">
+                </div>
+
+                <div class="field-group">
+                    <label>Signature *</label>
+                    <div class="sig-pad-container">
+                        <canvas id="sigCanvas"></canvas>
+                        <div class="sig-overlay-text" id="sigPlaceholder">Sign Here</div>
+                    </div>
+                    <button class="mini-btn btn-secondary" onclick="clearSignature()" style="margin-top: 5px; width: 100%;">Clear Signature</button>
+                    <div class="error-msg" id="err-sig">Signature required</div>
+                </div>
+
+                <div style="margin-top: 20px; background: var(--surface-alt); padding: 10px; border-radius: 8px;">
+                    <label>Summary:</label>
+                    <div id="reviewSummary" style="font-size: 0.9rem; white-space: pre-wrap; color: var(--text-muted);"></div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Navigation Footer -->
+    <footer class="nav-footer">
+        <button id="btnBack" class="btn btn-secondary" onclick="prevStep()" disabled>Back</button>
+        <button id="btnNext" class="btn btn-primary" onclick="nextStep()">Next</button>
+    </footer>
+
+    <!-- OVERLAY: CAMERA -->
+    <div id="cameraOverlay" class="overlay">
+        <div class="cam-tools">
+            <button class="tool-btn" onclick="closeCamera()">Cancel</button>
+            <button class="tool-btn" id="btnFlash" onclick="toggleFlash()">⚡ Off</button>
+        </div>
+        <div class="cam-view">
+            <video id="cameraFeed" autoplay playsinline></video>
+            <div class="zoom-container" id="zoomControls" style="display:none;">
+                <span>-</span>
+                <input type="range" id="zoomSlider" min="1" max="5" step="0.1" value="1">
+                <span>+</span>
+            </div>
+        </div>
+        <div class="cam-controls">
+            <button class="shutter-btn" onclick="takePhoto()"></button>
+        </div>
+    </div>
+
+    <!-- OVERLAY: EDITOR -->
+    <div id="editorOverlay" class="overlay">
+        <div class="cam-tools" style="background: var(--surface);">
+            <button class="tool-btn" onclick="closeEditor(false)">Discard</button>
+            <span style="margin: auto; font-weight: bold;">Edit Photo</span>
+            <button class="tool-btn" style="background: var(--primary);" onclick="saveEditor()">Save</button>
+        </div>
+        <div class="editor-stage">
+            <img id="editorImage" style="max-width: 100%; display: none;">
+        </div>
+        <div class="editor-controls">
+            <button class="btn btn-secondary" onclick="editorRotate(-90)">↺</button>
+            <button class="btn btn-secondary" onclick="editorRotate(90)">↻</button>
+            <button class="btn btn-secondary" onclick="editorReset()">Reset</button>
+            <button class="btn btn-secondary" onclick="editorZoom(0.1)">🔍+</button>
+        </div>
+    </div>
+
+    <!-- MODAL: LOADING -->
+    <div id="loadingModal" class="modal-backdrop">
+        <div class="modal-box">
+            <h3 style="color: var(--accent);">Processing...</h3>
+            <p>Generating PDF and preparing email.</p>
+        </div>
+    </div>
+
+    <script>
+        // --- STATE MANAGEMENT ---
+        const state = {
+            step: 1,
+            data: {
+                hotline: false,
+                prod: false,
+                si: false,
+                resolved: 'NA'
+            },
+            photos: { before: [], after: [], signoff: [] },
+            currentPhotoCategory: null, // for camera/editor context
+            cameraStream: null,
+            cropper: null,
+            signaturePad: null
+        };
+
+        // --- INITIALIZATION ---
+        window.addEventListener('load', () => {
+            // Set default date
+            document.getElementById('workDate').valueAsDate = new Date();
+            
+            // Setup Signature Pad
+            setupSignature();
+            
+            // Load LocalStorage
+            loadSavedData();
+            
+            // Render
+            updateUI();
+        });
+
+        // --- NAVIGATION & VALIDATION ---
+        function nextStep() {
+            if (!validateStep(state.step)) return;
+
+            if (state.step < 4) {
+                state.step++;
+                updateUI();
+            } else {
+                finishEOD();
+            }
+        }
+
+        function prevStep() {
+            if (state.step > 1) {
+                state.step--;
+                updateUI();
+            }
+        }
+
+        function updateUI() {
+            // Progress Bar
+            document.getElementById('progressBar').style.width = (state.step * 25) + '%';
+            
+            // Steps Visibility
+            document.querySelectorAll('.step-container').forEach((el, idx) => {
+                el.classList.toggle('active', idx + 1 === state.step);
+            });
+
+            // Buttons
+            document.getElementById('btnBack').disabled = state.step === 1;
+            const nextBtn = document.getElementById('btnNext');
+            if (state.step === 4) {
+                nextBtn.textContent = "Sign & Generate";
+                nextBtn.classList.remove('btn-primary');
+                nextBtn.classList.add('btn-success');
+                generateSummary();
+            } else {
+                nextBtn.textContent = "Next";
+                nextBtn.classList.add('btn-primary');
+                nextBtn.classList.remove('btn-success');
+            }
+
+            // Save Progress
+            saveData();
+        }
+
+        function validateStep(step) {
+            let isValid = true;
+            const setError = (id, valid) => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.classList.toggle('error', !valid);
+                    if (!valid) isValid = false;
+                }
+            };
+
+            if (step === 1) {
+                const sn = document.getElementById('storeNumber').value;
+                setError('storeNumber', /^\d{3}$/.test(sn));
+                
+                const date = new Date(document.getElementById('workDate').value);
+                const today = new Date();
+                today.setHours(23,59,59,999);
+                setError('workDate', date <= today);
+
+                setError('leadName', document.getElementById('leadName').value.trim().length > 0);
+                setError('checkInManager', document.getElementById('checkInManager').value.trim().length > 0);
+            }
+            else if (step === 2) {
+                const validBefore = state.photos.before.length > 0;
+                const validAfter = state.photos.after.length > 0;
+                const validSignoff = state.photos.signoff.length > 0;
+                
+                document.getElementById('err-before').style.display = validBefore ? 'none' : 'block';
+                document.getElementById('err-after').style.display = validAfter ? 'none' : 'block';
+                document.getElementById('err-signoff').style.display = validSignoff ? 'none' : 'block';
+                
+                if (!validBefore || !validAfter || !validSignoff) isValid = false;
+            }
+            else if (step === 3) {
+                if (state.data.hotline) {
+                    setError('commodities', document.getElementById('commodities').value.trim().length > 0);
+                    setError('issueDesc', document.getElementById('issueDesc').value.trim().length > 0);
+                    const resolved = document.getElementById('issueResolved').value;
+                    if (resolved === 'No') {
+                        setError('tempSolution', document.getElementById('tempSolution').value.trim().length > 0);
+                    }
+                }
+                setError('checkOutManager', document.getElementById('checkOutManager').value.trim().length > 0);
+            }
+            else if (step === 4) {
+                // Validate Signature
+                const canvas = document.getElementById('sigCanvas');
+                const isBlank = isCanvasBlank(canvas);
+                document.getElementById('err-sig').style.display = isBlank ? 'block' : 'none';
+                if (isBlank) isValid = false;
+            }
+
+            return isValid;
+        }
+
+        // --- TOGGLE LOGIC ---
+        function setToggle(key, value) {
+            state.data[key] = value;
+            
+            // Visual update
+            const container = document.getElementById(`tg-${key}`);
+            const options = container.querySelectorAll('.toggle-option');
+            options[0].classList.toggle('selected', value); // Yes
+            options[1].classList.toggle('selected', !value); // No
+
+            // Conditional Logic
+            if (key === 'hotline') {
+                document.getElementById('hotline-fields').style.display = value ? 'block' : 'none';
+            }
+            saveData();
+        }
+
+        document.getElementById('issueResolved').addEventListener('change', (e) => {
+            const val = e.target.value;
+            document.getElementById('tempSolutionGroup').style.display = (val === 'No') ? 'block' : 'none';
+        });
+
+        // --- CAMERA SYSTEM ---
+        async function launchCamera(category) {
+            state.currentPhotoCategory = category;
+            const overlay = document.getElementById('cameraOverlay');
+            const video = document.getElementById('cameraFeed');
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment', width: { ideal: 1920 } } 
+                });
+                state.cameraStream = stream;
+                video.srcObject = stream;
+                overlay.classList.add('active');
+
+                // Setup Zoom
+                const track = stream.getVideoTracks()[0];
+                const capabilities = track.getCapabilities();
+                if (capabilities.zoom) {
+                    const slider = document.getElementById('zoomSlider');
+                    document.getElementById('zoomControls').style.display = 'flex';
+                    slider.min = capabilities.zoom.min;
+                    slider.max = capabilities.zoom.max;
+                    slider.step = capabilities.zoom.step;
+                    slider.oninput = () => track.applyConstraints({ advanced: [{ zoom: slider.value }] });
+                } else {
+                    document.getElementById('zoomControls').style.display = 'none';
+                }
+
+                // Flash Capability
+                document.getElementById('btnFlash').style.display = capabilities.torch ? 'block' : 'none';
+
+            } catch (err) {
+                alert("Camera access denied or not available.");
+                console.error(err);
+            }
+        }
+
+        function takePhoto() {
+            const video = document.getElementById('cameraFeed');
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+            closeCamera();
+            openEditor(dataUrl); // Pass to editor
+        }
+
+        function closeCamera() {
+            if (state.cameraStream) {
+                state.cameraStream.getTracks().forEach(t => t.stop());
+                state.cameraStream = null;
+            }
+            document.getElementById('cameraOverlay').classList.remove('active');
+        }
+
+        function toggleFlash() {
+            if (!state.cameraStream) return;
+            const track = state.cameraStream.getVideoTracks()[0];
+            const current = track.getSettings().torch || false;
+            track.applyConstraints({ advanced: [{ torch: !current }] });
+            document.getElementById('btnFlash').innerText = !current ? '⚡ On' : '⚡ Off';
+        }
+
+        // --- IMAGE EDITOR (Cropper.js) ---
+        function handleFileUpload(input, category) {
+            state.currentPhotoCategory = category;
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = (e) => openEditor(e.target.result);
+                reader.readAsDataURL(input.files[0]);
+            }
+            input.value = ''; // reset
+        }
+
+        function openEditor(imageUrl) {
+            const overlay = document.getElementById('editorOverlay');
+            const img = document.getElementById('editorImage');
+            img.src = imageUrl;
+            overlay.classList.add('active');
+            
+            // Destroy previous instance
+            if (state.cropper) state.cropper.destroy();
+            
+            img.style.display = 'block';
+            state.cropper = new Cropper(img, {
+                viewMode: 1,
+                dragMode: 'move',
+                autoCropArea: 0.9,
+                background: false
+            });
+        }
+
+        function editorRotate(deg) { if (state.cropper) state.cropper.rotate(deg); }
+        function editorZoom(ratio) { if (state.cropper) state.cropper.zoom(ratio); }
+        function editorReset() { if (state.cropper) state.cropper.reset(); }
+
+        function saveEditor() {
+            if (!state.cropper) return;
+            
+            // Get Result
+            const canvas = state.cropper.getCroppedCanvas({ maxWidth: 1200, maxHeight: 1200 });
+            const finalImage = canvas.toDataURL('image/jpeg', 0.8);
+            
+            // Save to State
+            state.photos[state.currentPhotoCategory].push(finalImage);
+            
+            closeEditor(true);
+            renderPhotos(state.currentPhotoCategory);
+            saveData();
+        }
+
+        function closeEditor(saved) {
+            document.getElementById('editorOverlay').classList.remove('active');
+            if (state.cropper) state.cropper.destroy();
+            state.cropper = null;
+        }
+
+        function renderPhotos(category) {
+            const container = document.getElementById(`grid-${category}`);
+            // Remove existing photo elements (keep the buttons)
+            const existing = container.querySelectorAll('.photo-item-wrapper');
+            existing.forEach(e => e.remove());
+
+            state.photos[category].forEach((src, idx) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'photo-slot photo-item-wrapper';
+                wrapper.innerHTML = `
+                    <img src="${src}">
+                    <div class="photo-actions">
+                        <button class="mini-btn btn-delete" onclick="deletePhoto('${category}', ${idx})">Delete</button>
+                    </div>
+                `;
+                // Insert before the buttons
+                container.insertBefore(wrapper, container.children[container.children.length - 2]);
+            });
+        }
+
+        function deletePhoto(cat, idx) {
+            state.photos[cat].splice(idx, 1);
+            renderPhotos(cat);
+            saveData();
+        }
+
+        // --- SIGNATURE ---
+        function setupSignature() {
+            const canvas = document.getElementById('sigCanvas');
+            // Resize canvas for retina displays
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+
+            const ctx = canvas.getContext('2d');
+            ctx.lineWidth = 2;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = '#000';
+
+            let drawing = false;
+
+            function start(e) {
+                drawing = true;
+                document.getElementById('sigPlaceholder').style.display = 'none';
+                ctx.beginPath();
+                const {x, y} = getPos(e);
+                ctx.moveTo(x, y);
+            }
+            function move(e) {
+                if (!drawing) return;
+                e.preventDefault();
+                const {x, y} = getPos(e);
+                ctx.lineTo(x, y);
+                ctx.stroke();
+            }
+            function end() { drawing = false; }
+
+            function getPos(e) {
+                const rect = canvas.getBoundingClientRect();
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                return { x: clientX - rect.left, y: clientY - rect.top };
+            }
+
+            canvas.addEventListener('mousedown', start);
+            canvas.addEventListener('mousemove', move);
+            canvas.addEventListener('mouseup', end);
+            canvas.addEventListener('touchstart', start);
+            canvas.addEventListener('touchmove', move);
+            canvas.addEventListener('touchend', end);
+        }
+
+        function clearSignature() {
+            const canvas = document.getElementById('sigCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            document.getElementById('sigPlaceholder').style.display = 'block';
+        }
+
+        function isCanvasBlank(canvas) {
+            const context = canvas.getContext('2d');
+            const pixelBuffer = new Uint32Array(
+                context.getImageData(0, 0, canvas.width, canvas.height).data.buffer
+            );
+            return !pixelBuffer.some(color => color !== 0);
+        }
+
+        // --- DATA PERSISTENCE ---
+        function saveData() {
+            const formData = {
+                store: document.getElementById('storeNumber').value,
+                date: document.getElementById('workDate').value,
+                lead: document.getElementById('leadName').value,
+                inMgr: document.getElementById('checkInManager').value,
+                outMgr: document.getElementById('checkOutManager').value,
+                commodities: document.getElementById('commodities').value,
+                issue: document.getElementById('issueDesc').value,
+                temp: document.getElementById('tempSolution').value,
+                notes: document.getElementById('notes').value,
+                toggles: state.data,
+                photos: state.photos
+            };
+            localStorage.setItem('kompass_v2_data', JSON.stringify(formData));
+        }
+
+        function loadSavedData() {
+            const raw = localStorage.getItem('kompass_v2_data');
+            if (!raw) return;
+            const d = JSON.parse(raw);
+
+            document.getElementById('storeNumber').value = d.store || '';
+            document.getElementById('workDate').value = d.date || '';
+            document.getElementById('leadName').value = d.lead || '';
+            document.getElementById('checkInManager').value = d.inMgr || '';
+            document.getElementById('checkOutManager').value = d.outMgr || '';
+            document.getElementById('commodities').value = d.commodities || '';
+            document.getElementById('issueDesc').value = d.issue || '';
+            document.getElementById('tempSolution').value = d.temp || '';
+            document.getElementById('notes').value = d.notes || '';
+
+            if (d.toggles) {
+                setToggle('hotline', d.toggles.hotline);
+                setToggle('prod', d.toggles.prod);
+                setToggle('si', d.toggles.si);
+            }
+
+            if (d.photos) {
+                state.photos = d.photos;
+                renderPhotos('before');
+                renderPhotos('after');
+                renderPhotos('signoff');
+            }
+        }
+
+        // --- FINAL SUBMISSION LOGIC ---
+        function generateSummary() {
+            const s = document.getElementById('storeNumber').value;
+            const d = document.getElementById('workDate').value;
+            const pCount = state.photos.before.length + state.photos.after.length + state.photos.signoff.length;
+            document.getElementById('reviewSummary').textContent = 
+                `Store: ${s}\nDate: ${d}\nLead: ${document.getElementById('leadName').value}\nPhotos: ${pCount}\nIssues: ${state.data.hotline ? 'Yes' : 'No'}`;
+        }
+
+        async function finishEOD() {
+            document.getElementById('loadingModal').style.display = 'flex';
+
+            try {
+                // 1. Prepare Data
+                const pdfBytes = await generatePDF();
+                const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+                
+                // 2. Filename
+                const store = document.getElementById('storeNumber').value.padStart(3,'0');
+                const dateObj = new Date(document.getElementById('workDate').value);
+                const dateStr = `${String(dateObj.getMonth()+1).padStart(2,'0')}_${String(dateObj.getDate()).padStart(2,'0')}_${dateObj.getFullYear()}`;
+                const filename = `KOMPASS EOD Cover Sheet FM${store} ${dateStr}.pdf`;
+
+                // 3. Download
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = filename;
+                link.click();
+
+                // 4. Email
+                const emailTo = document.getElementById('emailTo').value;
+                const cc = "aiyana.natarisalazar@retailodyssey.com; tyson.gauthier@retailodyssey.com";
+                const subject = `KOMPASS EOD FM${store} ${dateObj.toLocaleDateString()}`;
+                const body = `Please find the EOD Report for Store ${store} attached.\n\nLead: ${document.getElementById('leadName').value}\nNotes: ${document.getElementById('notes').value}`;
+                
+                window.location.href = `mailto:${emailTo}?cc=${cc}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+            } catch (e) {
+                console.error(e);
+                alert("Error generating PDF. Please ensure the template file is present.");
+            } finally {
+                document.getElementById('loadingModal').style.display = 'none';
+            }
+        }
+
+        // --- PDF GENERATION (pdf-lib) ---
+        async function generatePDF() {
+            const url = 'End Of Day Cover Sheet Form Editable Template.pdf';
+            const existingPdfBytes = await fetch(url).then(res => res.arrayBuffer());
+            const pdfDoc = await PDFLib.PDFDocument.load(existingPdfBytes);
+            const form = pdfDoc.getForm();
+
+            // Map Fields
+            const getVal = (id) => document.getElementById(id).value;
+            
+            try {
+                form.getTextField('LeadName').setText(getVal('leadName'));
+                form.getTextField('DateISO').setText(getVal('workDate')); // Format mm/dd/yyyy
+                form.getTextField('StoreNumber').setText(getVal('storeNumber'));
+                form.getTextField('CheckInManager').setText(getVal('checkInManager'));
+                form.getTextField('CheckOutManager').setText(getVal('checkOutManager'));
+                
+                if (state.data.hotline) {
+                    form.getRadioGroup('CalledHotline').select('Yes');
+                    form.getTextField('IssueCommodities').setText(getVal('commodities'));
+                    form.getTextField('WhatIsIssue').setText(getVal('issueDesc'));
+                    const resolved = document.getElementById('issueResolved').value;
+                    if (resolved !== 'NA') form.getRadioGroup('IssueResolved').select(resolved === 'Yes' ? 'Yes' : 'No');
+                    if (resolved === 'No') form.getTextField('TempSolution').setText(getVal('tempSolution'));
+                } else {
+                    form.getRadioGroup('CalledHotline').select('No');
+                }
+
+                form.getRadioGroup('SignedOutPROD').select(state.data.prod ? 'Yes' : 'No');
+                form.getRadioGroup('SignedOutSI').select(state.data.si ? 'Yes' : 'No');
+                
+                // Photo Checkboxes (Auto-Yes if photos exist)
+                form.getRadioGroup('BeforePicPosted').select(state.photos.before.length > 0 ? 'Yes' : 'No');
+                form.getRadioGroup('AfterPicPosted').select(state.photos.after.length > 0 ? 'Yes' : 'No');
+                const signoffExists = state.photos.signoff.length > 0;
+                form.getRadioGroup('SignoutSheetAttachedEmail').select(signoffExists ? 'Yes' : 'No');
+                form.getRadioGroup('SignoutSheetAttachedPROD').select(signoffExists ? 'Yes' : 'No');
+
+                // Embed Signature
+                const canvas = document.getElementById('sigCanvas');
+                if (!isCanvasBlank(canvas)) {
+                    const sigImg = await pdfDoc.embedPng(canvas.toDataURL());
+                    // Attempt to place signature on page 1 (Coordinate estimate based on template)
+                    // If form has a signature button/image field:
+                    try { form.getButton('LeadSignatureImage').setImage(sigImg); } catch(e) {
+                        // Fallback: Draw on page
+                        pdfDoc.getPages()[0].drawImage(sigImg, { x: 400, y: 80, width: 150, height: 50 });
+                    }
+                }
+
+            } catch (e) { console.warn("Field mapping error", e); }
+
+            form.flatten();
+
+            // Append Photo Pages
+            const allPhotos = [
+                ...state.photos.before.map(p => ({t: 'Before', d: p})),
+                ...state.photos.after.map(p => ({t: 'After', d: p})),
+                ...state.photos.signoff.map(p => ({t: 'Sign-Off', d: p}))
+            ];
+
+            if (allPhotos.length > 0) {
+                const page = pdfDoc.addPage();
+                let y = page.getHeight() - 50;
+                
+                for (const p of allPhotos) {
+                    if (y < 300) { y = page.getHeight() - 50; pdfDoc.addPage(); }
+                    
+                    page.drawText(p.t, { x: 50, y, size: 18 });
+                    y -= 20;
+                    
+                    const img = await pdfDoc.embedJpg(p.d); // Cropper output is JPG
+                    const dims = img.scaleToFit(400, 300);
+                    page.drawImage(img, { x: 50, y: y - dims.height, width: dims.width, height: dims.height });
+                    y -= (dims.height + 30);
+                }
+            }
+
+            return await pdfDoc.save();
+        }
+    </script>
+</body>
+</html>
