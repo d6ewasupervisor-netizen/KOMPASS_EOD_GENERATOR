@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>KOMPASS EOD System v2.4</title>
+    <title>KOMPASS EOD System v2.5</title>
     
     <!-- Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js"></script>
@@ -167,6 +167,7 @@
             touch-action: none; 
             border: 1px solid var(--secondary); 
             width: 100%;
+            overflow: hidden;
         }
         canvas#sigCanvas { width: 100%; height: 100%; display: block; }
         .sig-overlay-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #999; pointer-events: none; font-style: italic; }
@@ -479,7 +480,7 @@
                 <label>Signature *</label>
                 <div class="sig-pad-container" id="sigContainer">
                     <canvas id="sigCanvas"></canvas>
-                    <div class="sig-overlay-text" id="sigPlaceholder">Sign Here (Rotate for space)</div>
+                    <div class="sig-overlay-text" id="sigPlaceholder">Sign Here (Rotate for more space)</div>
                 </div>
                 <button class="mini-btn btn-reset" onclick="clearSignature()" style="margin-top: 8px; width: 100%;">Clear / Retry</button>
                 <div class="error-msg">Signature required</div>
@@ -768,31 +769,42 @@
             }
         }
 
-        // --- SIGNATURE (With Rotation Support) ---
+        // --- SIGNATURE (With Persistence) ---
         function setupSignature() {
             const canvas = document.getElementById('sigCanvas');
             const container = document.getElementById('sigContainer');
             const ctx = canvas.getContext('2d');
-            ctx.lineWidth = 2;
-            ctx.lineCap = 'round';
             
-            // Resize handler to keep coordinate mapping correct on rotation
+            // Function to resize canvas while keeping content
             const resizeCanvas = () => {
-                // Get the actual display size of the container
                 const rect = container.getBoundingClientRect();
                 
-                // Set canvas resolution to match display size
+                // 1. Check if size actually changed
+                if (canvas.width === rect.width && canvas.height === rect.height) return;
+
+                // 2. Save current content if not blank
+                const wasBlank = isCanvasBlank(canvas);
+                let savedData = null;
+                if (!wasBlank) savedData = canvas.toDataURL();
+
+                // 3. Resize
                 canvas.width = rect.width;
                 canvas.height = rect.height;
-                
-                // Reset line properties after resize
+
+                // 4. Reset Context (cleared by resize)
                 ctx.lineWidth = 2;
                 ctx.lineCap = 'round';
+
+                // 5. Restore content (scale to fit)
+                if (savedData) {
+                    const img = new Image();
+                    img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    img.src = savedData;
+                }
             };
-            
-            // Initial size
+
+            // Initial sizing
             resizeCanvas();
-            
             // Listen for rotation/resize
             window.addEventListener('resize', resizeCanvas);
 
@@ -813,8 +825,6 @@
                 ctx.stroke();
             };
             const end = () => drawing = false;
-            
-            // Get coordinates relative to the canvas current size
             const getPos = (e) => {
                 const r = canvas.getBoundingClientRect();
                 const cx = e.touches ? e.touches[0].clientX : e.clientX;
@@ -858,11 +868,11 @@
                 photos: state.photos,
                 emailTo: document.getElementById('emailTo').value
             };
-            localStorage.setItem('kompass_v24_data', JSON.stringify(d));
+            localStorage.setItem('kompass_v25_data', JSON.stringify(d));
         }
 
         function loadSavedData() {
-            const raw = localStorage.getItem('kompass_v24_data');
+            const raw = localStorage.getItem('kompass_v25_data');
             if (!raw) return;
             const d = JSON.parse(raw);
 
@@ -989,7 +999,7 @@ ${getVal('notes')}`;
 
         function resetForm() {
             if(confirm("Clear all data and photos?")) {
-                localStorage.removeItem('kompass_v24_data');
+                localStorage.removeItem('kompass_v25_data');
                 location.reload();
             }
         }
