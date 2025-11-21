@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>KOMPASS EOD System v2.1</title>
+    <title>KOMPASS EOD System v2.2</title>
     
     <!-- Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js"></script>
@@ -32,6 +32,7 @@
             background: var(--background);
             color: var(--text-main);
             height: 100vh;
+            height: 100dvh; /* Mobile viewport fix */
             display: flex;
             flex-direction: column;
             overflow: hidden; 
@@ -40,20 +41,20 @@
         /* --- Header --- */
         .app-header {
             background: var(--surface);
-            padding: 15px;
+            padding: 12px;
             text-align: center;
             box-shadow: 0 2px 10px rgba(0,0,0,0.3);
             z-index: 10;
             flex-shrink: 0;
         }
-        .header-logo { max-height: 40px; margin-bottom: 5px; }
+        .header-logo { max-height: 35px; margin-bottom: 5px; }
         .app-title { color: var(--accent); font-size: 1.1rem; font-weight: 700; margin: 0; }
 
         /* --- Main Content Area --- */
         .main-content {
             flex: 1;
             overflow-y: auto;
-            padding: 20px;
+            padding: 15px;
             padding-bottom: 100px; /* Space for footer */
             scroll-behavior: smooth;
         }
@@ -61,27 +62,24 @@
         .section-card {
             background: var(--surface);
             border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 25px;
+            padding: 15px;
+            margin-bottom: 20px;
             border-left: 4px solid var(--primary);
             box-shadow: 0 4px 6px rgba(0,0,0,0.2);
         }
 
         .section-title {
             color: var(--accent);
-            font-size: 1.2em;
+            font-size: 1.1em;
             font-weight: 600;
             margin-bottom: 15px;
-            padding-bottom: 10px;
+            padding-bottom: 8px;
             border-bottom: 1px solid var(--secondary);
-            display: flex;
-            align-items: center;
-            gap: 8px;
         }
 
         /* --- Forms --- */
-        .field-group { margin-bottom: 20px; scroll-margin-top: 100px; }
-        label { display: block; margin-bottom: 8px; color: var(--text-muted); font-size: 0.95rem; font-weight: 600; }
+        .field-group { margin-bottom: 20px; scroll-margin-top: 80px; }
+        label { display: block; margin-bottom: 8px; color: var(--text-muted); font-size: 0.9rem; font-weight: 600; }
         
         input[type="text"], input[type="date"], input[type="email"], textarea, select {
             width: 100%;
@@ -100,7 +98,6 @@
         .field-group.error-state input, 
         .field-group.error-state textarea,
         .field-group.error-state select,
-        .field-group.error-state .photo-grid,
         .field-group.error-state canvas { 
             border-color: var(--danger); 
             box-shadow: 0 0 0 1px var(--danger);
@@ -116,25 +113,29 @@
         .field-group.error-state .error-msg { display: block; }
 
         /* --- Toggle Buttons (Radios) --- */
-        .toggle-group { display: flex; gap: 10px; background: var(--surface-alt); padding: 4px; border-radius: 8px; }
-        .toggle-option { flex: 1; text-align: center; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: 600; color: var(--text-muted); transition: all 0.2s; }
+        .toggle-group { display: flex; gap: 10px; background: var(--surface-alt); padding: 4px; border-radius: 8px; margin-bottom: 10px; }
+        .toggle-option { flex: 1; text-align: center; padding: 10px; border-radius: 6px; cursor: pointer; font-weight: 600; color: var(--text-muted); transition: all 0.2s; }
         .toggle-option.selected { background: var(--primary); color: white; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
 
         /* --- Photos --- */
+        .photo-section {
+            background: rgba(255,255,255,0.03);
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
         .photo-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-            gap: 10px;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 8px;
             margin-top: 10px;
-            padding: 10px;
-            border: 1px solid transparent;
-            border-radius: 8px;
         }
 
         .photo-slot {
             aspect-ratio: 1;
             background: var(--surface-alt);
-            border: 2px dashed var(--secondary);
+            border: 1px dashed var(--secondary);
             border-radius: 8px;
             display: flex;
             align-items: center;
@@ -147,20 +148,19 @@
         .photo-slot img { width: 100%; height: 100%; object-fit: cover; }
         
         .photo-actions {
-            position: absolute; inset: 0; background: rgba(0,0,0,0.6);
+            position: absolute; inset: 0; background: rgba(0,0,0,0.7);
             display: none; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
         }
         .photo-slot:hover .photo-actions { display: flex; }
         
-        .mini-btn { padding: 6px 12px; border-radius: 4px; border: none; cursor: pointer; font-size: 0.8rem; color: white; }
-        .btn-edit { background: var(--primary); }
+        .mini-btn { padding: 4px 8px; border-radius: 4px; border: none; cursor: pointer; font-size: 0.75rem; color: white; }
         .btn-delete { background: var(--danger); }
 
-        .add-photo-btn { flex-direction: column; gap: 5px; color: var(--accent); text-align: center; }
-        .add-photo-btn span { font-size: 1.8rem; }
+        .add-photo-btn { flex-direction: column; gap: 2px; color: var(--accent); text-align: center; }
+        .add-photo-btn span { font-size: 1.5rem; }
 
         /* --- Signature --- */
-        .sig-pad-container { background: white; border-radius: 8px; height: 180px; position: relative; touch-action: none; border: 1px solid var(--secondary); }
+        .sig-pad-container { background: white; border-radius: 8px; height: 150px; position: relative; touch-action: none; border: 1px solid var(--secondary); }
         canvas#sigCanvas { width: 100%; height: 100%; display: block; }
         .sig-overlay-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #999; pointer-events: none; font-style: italic; }
 
@@ -177,11 +177,11 @@
         }
 
         .btn {
-            padding: 14px;
+            padding: 12px;
             border: none;
             border-radius: 8px;
             font-weight: 700;
-            font-size: 1rem;
+            font-size: 0.95rem;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -195,42 +195,68 @@
         .btn-submit { background: var(--success); color: white; width: 70%; }
         .btn:active { transform: translateY(2px); }
 
-        /* --- Overlays --- */
+        /* --- Camera Overlay (Improved) --- */
         .overlay {
-            position: fixed; inset: 0; background: black; z-index: 1000;
-            display: none; flex-direction: column;
+            position: fixed; inset: 0; z-index: 2000;
+            background: #000; display: none; flex-direction: column;
+            height: 100%; width: 100%;
         }
         .overlay.active { display: flex; }
 
-        .cam-view { flex: 1; position: relative; background: #000; }
-        video#cameraFeed { width: 100%; height: 100%; object-fit: cover; }
-        
-        .cam-controls {
-            height: 120px; background: rgba(0,0,0,0.8);
-            display: flex; align-items: center; justify-content: center; position: relative;
+        /* Top Bar */
+        .cam-tools {
+            flex-shrink: 0; z-index: 2010;
+            padding: 15px; background: rgba(0,0,0,0.5);
+            display: flex; justify-content: space-between; align-items: center;
         }
+        
+        /* Video Area */
+        .cam-view {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+        }
+        video#cameraFeed {
+            width: 100%;
+            height: 100%;
+            object-fit: cover; /* Fill screen */
+        }
+
+        /* Bottom Bar */
+        .cam-controls {
+            flex-shrink: 0; z-index: 2010;
+            height: 100px;
+            background: rgba(0,0,0,0.8);
+            display: flex; align-items: center; justify-content: center;
+        }
+
         .shutter-btn {
             width: 70px; height: 70px; border-radius: 50%;
             background: white; border: 4px solid var(--secondary);
-            cursor: pointer; z-index: 2;
+            cursor: pointer; box-shadow: 0 0 15px rgba(0,0,0,0.5);
         }
-        
-        .cam-tools {
-            position: absolute; top: 0; left: 0; right: 0; padding: 15px;
-            display: flex; justify-content: space-between; z-index: 10; background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent);
-        }
-        .tool-btn { background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 15px; border-radius: 20px; backdrop-filter: blur(4px); }
+        .shutter-btn:active { transform: scale(0.9); background: #ccc; }
+
+        .tool-btn { background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 15px; border-radius: 20px; backdrop-filter: blur(4px); font-weight: bold; }
+
+        /* Zoom Control in Header */
+        #zoomControls { display: flex; align-items: center; gap: 10px; flex: 1; justify-content: center; margin: 0 15px; }
+        input[type=range] { flex: 1; max-width: 150px; height: 4px; }
 
         /* Editor */
-        .editor-stage { flex: 1; background: #111; position: relative; }
+        .editor-stage { flex: 1; background: #111; position: relative; display: flex; align-items: center; justify-content: center; }
         .editor-toolbar {
-            padding: 15px; background: var(--surface);
+            flex-shrink: 0; padding: 15px; background: var(--surface);
             display: flex; gap: 10px; justify-content: space-around;
         }
 
         /* Loading Modal */
         .modal-backdrop {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 2000;
+            position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 3000;
             display: none; align-items: center; justify-content: center;
         }
         .modal-box {
@@ -290,13 +316,16 @@
         <!-- SECTION: PHOTOS -->
         <div class="section-card">
             <div class="section-title">Photos</div>
-            <p style="color: var(--text-muted); font-size: 0.85em; margin-bottom: 15px;">
-                Take photos directly or upload from gallery. You can edit/crop after capturing.
-            </p>
-
+            
             <!-- Before -->
-            <div class="field-group" id="fg-photo-before">
-                <label>KOMPASS Cart - Before (Min 1) *</label>
+            <div class="photo-section">
+                <label>Before picture of KOMPASS cart taken? *</label>
+                <div class="toggle-group" id="tg-beforeTaken">
+                    <div class="toggle-option" onclick="setToggle('beforeTaken', true)">Yes</div>
+                    <div class="toggle-option selected" onclick="setToggle('beforeTaken', false)">No</div>
+                </div>
+
+                <label style="font-size: 0.85rem; margin-top: 10px;">Add Evidence Photos (Optional):</label>
                 <div class="photo-grid" id="grid-before">
                     <div class="photo-slot add-photo-btn" onclick="launchCamera('before')">
                         <span>📷</span><div>Cam</div>
@@ -306,12 +335,17 @@
                     </div>
                 </div>
                 <input type="file" id="file-before" hidden accept="image/*" onchange="handleFileUpload(this, 'before')">
-                <div class="error-msg">Before photo required</div>
             </div>
 
             <!-- After -->
-            <div class="field-group" id="fg-photo-after">
-                <label>KOMPASS Cart - After (Min 1) *</label>
+            <div class="photo-section">
+                <label>After picture of KOMPASS cart taken? *</label>
+                <div class="toggle-group" id="tg-afterTaken">
+                    <div class="toggle-option" onclick="setToggle('afterTaken', true)">Yes</div>
+                    <div class="toggle-option selected" onclick="setToggle('afterTaken', false)">No</div>
+                </div>
+
+                <label style="font-size: 0.85rem; margin-top: 10px;">Add Evidence Photos (Optional):</label>
                 <div class="photo-grid" id="grid-after">
                     <div class="photo-slot add-photo-btn" onclick="launchCamera('after')">
                         <span>📷</span><div>Cam</div>
@@ -321,12 +355,17 @@
                     </div>
                 </div>
                 <input type="file" id="file-after" hidden accept="image/*" onchange="handleFileUpload(this, 'after')">
-                <div class="error-msg">After photo required</div>
             </div>
 
             <!-- Signoff -->
-            <div class="field-group" id="fg-photo-signoff">
-                <label>Sign-Off Sheets (Min 1) *</label>
+            <div class="photo-section">
+                <label>Sign-Off Sheets taken? *</label>
+                <div class="toggle-group" id="tg-signoffTaken">
+                    <div class="toggle-option" onclick="setToggle('signoffTaken', true)">Yes</div>
+                    <div class="toggle-option selected" onclick="setToggle('signoffTaken', false)">No</div>
+                </div>
+
+                <label style="font-size: 0.85rem; margin-top: 10px;">Add Evidence Photos (Optional):</label>
                 <div class="photo-grid" id="grid-signoff">
                     <div class="photo-slot add-photo-btn" onclick="launchCamera('signoff')">
                         <span>📷</span><div>Cam</div>
@@ -336,7 +375,6 @@
                     </div>
                 </div>
                 <input type="file" id="file-signoff" hidden accept="image/*" multiple onchange="handleFileUpload(this, 'signoff')">
-                <div class="error-msg">Sign-off sheet photo required</div>
             </div>
         </div>
 
@@ -435,21 +473,25 @@
         <button class="btn btn-submit" onclick="validateAndSubmit()">Generate PDF & Email</button>
     </footer>
 
-    <!-- OVERLAY: CAMERA -->
+    <!-- OVERLAY: CAMERA (Improved Layout) -->
     <div id="cameraOverlay" class="overlay">
         <div class="cam-tools">
             <button class="tool-btn" onclick="closeCamera()">Cancel</button>
-            <button class="tool-btn" id="btnFlash" onclick="toggleFlash()">⚡ Off</button>
-        </div>
-        <div class="cam-view">
-            <video id="cameraFeed" autoplay playsinline></video>
-            <!-- Zoom Slider Overlay -->
-            <div id="zoomControls" style="position:absolute; bottom:20px; left:50%; transform:translateX(-50%); width:80%; display:none; align-items:center; gap:10px; color:white;">
+            
+            <!-- Zoom Controls moved to top -->
+            <div id="zoomControls" style="display:none;">
                 <span>-</span>
-                <input type="range" id="zoomSlider" min="1" max="5" step="0.1" value="1" style="flex:1">
+                <input type="range" id="zoomSlider" min="1" max="5" step="0.1" value="1">
                 <span>+</span>
             </div>
+
+            <button class="tool-btn" id="btnFlash" onclick="toggleFlash()">⚡ Off</button>
         </div>
+        
+        <div class="cam-view">
+            <video id="cameraFeed" autoplay playsinline></video>
+        </div>
+        
         <div class="cam-controls">
             <button class="shutter-btn" onclick="takePhoto()"></button>
         </div>
@@ -488,7 +530,11 @@
                 hotline: false,
                 prod: false,
                 si: false,
-                resolved: 'NA'
+                resolved: 'NA',
+                // New Photo Toggles (Default to false)
+                beforeTaken: false,
+                afterTaken: false,
+                signoffTaken: false
             },
             photos: { before: [], after: [], signoff: [] },
             currentPhotoCategory: null,
@@ -562,10 +608,9 @@
             req('leadName', 'fg-lead');
             req('checkInManager', 'fg-inMgr');
 
-            // 2. Photos
-            if (state.photos.before.length === 0) markError('fg-photo-before');
-            if (state.photos.after.length === 0) markError('fg-photo-after');
-            if (state.photos.signoff.length === 0) markError('fg-photo-signoff');
+            // 2. Photos (Removed strict array length check, using toggles now)
+            // No validation needed here as "No" is a valid option per prompt
+            // But we could force them to select Yes/No if we wanted. Currently defaulting to No is safe.
 
             // 3. Issues
             if (state.data.hotline) {
@@ -622,7 +667,6 @@
         }
 
         // --- PHOTOS, CAMERA, EDITOR ---
-        // (Same logic as v2.0 but adapted slightly for non-stepped layout)
         async function launchCamera(category) {
             state.currentPhotoCategory = category;
             const overlay = document.getElementById('cameraOverlay');
@@ -654,7 +698,7 @@
                 document.getElementById('btnFlash').style.display = capabilities.torch ? 'block' : 'none';
 
             } catch (err) {
-                alert("Camera unavailable.");
+                alert("Camera unavailable. Please check permissions.");
             }
         }
 
@@ -707,14 +751,23 @@
 
         function editorRotate(deg) { if (state.cropper) state.cropper.rotate(deg); }
         function editorZoom(ratio) { if (state.cropper) state.cropper.zoom(ratio); }
+        
         function saveEditor() {
             if (!state.cropper) return;
+            const category = state.currentPhotoCategory;
             const canvas = state.cropper.getCroppedCanvas({ maxWidth: 1200, maxHeight: 1200 });
-            state.photos[state.currentPhotoCategory].push(canvas.toDataURL('image/jpeg', 0.8));
+            
+            // Save Photo
+            state.photos[category].push(canvas.toDataURL('image/jpeg', 0.8));
+            
+            // Auto-Set Toggle to YES
+            setToggle(category + 'Taken', true);
+            
             closeEditor(true);
-            renderPhotos(state.currentPhotoCategory);
+            renderPhotos(category);
             saveData();
         }
+        
         function closeEditor() {
             document.getElementById('editorOverlay').classList.remove('active');
             if (state.cropper) state.cropper.destroy();
@@ -737,15 +790,16 @@
                 `;
                 container.insertBefore(wrapper, container.children[container.children.length - 2]);
             });
-            
-            // Remove error state if valid
-            if(state.photos[category].length > 0) {
-                document.getElementById(`fg-photo-${category}`).classList.remove('error-state');
-            }
         }
 
         function deletePhoto(cat, idx) {
             state.photos[cat].splice(idx, 1);
+            // If no photos left, maybe toggle back to No? 
+            // The request didn't specify, but usually safer to leave as Yes if they manually set it, 
+            // or flip to No if they remove all evidence. I'll flip to No if empty.
+            if(state.photos[cat].length === 0) {
+                setToggle(cat + 'Taken', false);
+            }
             renderPhotos(cat);
             saveData();
         }
@@ -820,11 +874,11 @@
                 photos: state.photos,
                 emailTo: document.getElementById('emailTo').value
             };
-            localStorage.setItem('kompass_v21_data', JSON.stringify(d));
+            localStorage.setItem('kompass_v22_data', JSON.stringify(d));
         }
 
         function loadSavedData() {
-            const raw = localStorage.getItem('kompass_v21_data');
+            const raw = localStorage.getItem('kompass_v22_data');
             if (!raw) return;
             const d = JSON.parse(raw);
 
@@ -847,6 +901,10 @@
                     document.getElementById('issueResolved').value = d.toggles.resolved;
                     handleResolvedChange();
                 }
+                // Load new toggles
+                setToggle('beforeTaken', d.toggles.beforeTaken || false);
+                setToggle('afterTaken', d.toggles.afterTaken || false);
+                setToggle('signoffTaken', d.toggles.signoffTaken || false);
             }
 
             if(d.photos) {
@@ -859,7 +917,7 @@
 
         function resetForm() {
             if(confirm("Clear all data and photos?")) {
-                localStorage.removeItem('kompass_v21_data');
+                localStorage.removeItem('kompass_v22_data');
                 location.reload();
             }
         }
@@ -894,11 +952,13 @@
                 form.getRadioGroup('SignedOutPROD').select(state.data.prod ? 'Yes' : 'No');
                 form.getRadioGroup('SignedOutSI').select(state.data.si ? 'Yes' : 'No');
                 
-                form.getRadioGroup('BeforePicPosted').select(state.photos.before.length > 0 ? 'Yes' : 'No');
-                form.getRadioGroup('AfterPicPosted').select(state.photos.after.length > 0 ? 'Yes' : 'No');
-                const signoffExists = state.photos.signoff.length > 0;
-                form.getRadioGroup('SignoutSheetAttachedEmail').select(signoffExists ? 'Yes' : 'No');
-                form.getRadioGroup('SignoutSheetAttachedPROD').select(signoffExists ? 'Yes' : 'No');
+                // Use the new explicit toggles for PDF checkboxes
+                form.getRadioGroup('BeforePicPosted').select(state.data.beforeTaken ? 'Yes' : 'No');
+                form.getRadioGroup('AfterPicPosted').select(state.data.afterTaken ? 'Yes' : 'No');
+                
+                const so = state.data.signoffTaken;
+                form.getRadioGroup('SignoutSheetAttachedEmail').select(so ? 'Yes' : 'No');
+                form.getRadioGroup('SignoutSheetAttachedPROD').select(so ? 'Yes' : 'No');
 
                 const canvas = document.getElementById('sigCanvas');
                 if (!isCanvasBlank(canvas)) {
