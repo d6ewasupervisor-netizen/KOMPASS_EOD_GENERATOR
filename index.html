@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>KOMPASS EOD System v2.2</title>
+    <title>KOMPASS EOD System v2.3</title>
     
     <!-- Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js"></script>
@@ -148,14 +148,12 @@
         .photo-slot img { width: 100%; height: 100%; object-fit: cover; }
         
         .photo-actions {
-            position: absolute; inset: 0; background: rgba(0,0,0,0.7);
-            display: none; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+            position: absolute; inset: 0; background: rgba(0,0,0,0.3);
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0; transition: opacity 0.2s;
         }
-        .photo-slot:hover .photo-actions { display: flex; }
+        .photo-slot:hover .photo-actions { opacity: 1; }
         
-        .mini-btn { padding: 4px 8px; border-radius: 4px; border: none; cursor: pointer; font-size: 0.75rem; color: white; }
-        .btn-delete { background: var(--danger); }
-
         .add-photo-btn { flex-direction: column; gap: 2px; color: var(--accent); text-align: center; }
         .add-photo-btn span { font-size: 1.5rem; }
 
@@ -194,8 +192,9 @@
         .btn-reset { background: var(--secondary); color: white; width: 30%; }
         .btn-submit { background: var(--success); color: white; width: 70%; }
         .btn:active { transform: translateY(2px); }
+        .btn-danger { background: var(--danger); color: white; }
 
-        /* --- Camera Overlay (Improved) --- */
+        /* --- Overlays --- */
         .overlay {
             position: fixed; inset: 0; z-index: 2000;
             background: #000; display: none; flex-direction: column;
@@ -203,55 +202,53 @@
         }
         .overlay.active { display: flex; }
 
-        /* Top Bar */
+        /* Common Top Bar */
         .cam-tools {
             flex-shrink: 0; z-index: 2010;
             padding: 15px; background: rgba(0,0,0,0.5);
             display: flex; justify-content: space-between; align-items: center;
         }
-        
-        /* Video Area */
-        .cam-view {
-            flex: 1;
-            position: relative;
-            overflow: hidden;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #000;
-        }
-        video#cameraFeed {
-            width: 100%;
-            height: 100%;
-            object-fit: cover; /* Fill screen */
-        }
+        .tool-btn { background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 15px; border-radius: 20px; backdrop-filter: blur(4px); font-weight: bold; }
 
-        /* Bottom Bar */
+        /* --- Camera Specific --- */
+        .cam-view {
+            flex: 1; position: relative; overflow: hidden;
+            display: flex; align-items: center; justify-content: center; background: #000;
+        }
+        video#cameraFeed { width: 100%; height: 100%; object-fit: cover; }
         .cam-controls {
-            flex-shrink: 0; z-index: 2010;
-            height: 100px;
+            flex-shrink: 0; z-index: 2010; height: 100px;
             background: rgba(0,0,0,0.8);
             display: flex; align-items: center; justify-content: center;
         }
-
         .shutter-btn {
             width: 70px; height: 70px; border-radius: 50%;
             background: white; border: 4px solid var(--secondary);
             cursor: pointer; box-shadow: 0 0 15px rgba(0,0,0,0.5);
         }
-        .shutter-btn:active { transform: scale(0.9); background: #ccc; }
-
-        .tool-btn { background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 15px; border-radius: 20px; backdrop-filter: blur(4px); font-weight: bold; }
-
-        /* Zoom Control in Header */
         #zoomControls { display: flex; align-items: center; gap: 10px; flex: 1; justify-content: center; margin: 0 15px; }
         input[type=range] { flex: 1; max-width: 150px; height: 4px; }
 
-        /* Editor */
+        /* --- Editor Specific --- */
         .editor-stage { flex: 1; background: #111; position: relative; display: flex; align-items: center; justify-content: center; }
         .editor-toolbar {
             flex-shrink: 0; padding: 15px; background: var(--surface);
             display: flex; gap: 10px; justify-content: space-around;
+        }
+
+        /* --- Viewer Specific (New) --- */
+        .viewer-stage {
+            flex: 1; background: #000; position: relative; overflow: hidden;
+        }
+        .viewer-controls {
+            position: absolute; bottom: 30px; left: 0; right: 0;
+            display: flex; justify-content: center; gap: 25px;
+            pointer-events: none; z-index: 2020;
+        }
+        .viewer-controls button {
+            pointer-events: auto; min-width: 120px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+            border: 2px solid rgba(255,255,255,0.1);
         }
 
         /* Loading Modal */
@@ -382,7 +379,6 @@
         <div class="section-card">
             <div class="section-title">Issues & Check Out</div>
 
-            <!-- Hotline Logic -->
             <div class="field-group">
                 <label>Did you call KOMPASS Hotline? *</label>
                 <div class="toggle-group" id="tg-hotline">
@@ -473,25 +469,20 @@
         <button class="btn btn-submit" onclick="validateAndSubmit()">Generate PDF & Email</button>
     </footer>
 
-    <!-- OVERLAY: CAMERA (Improved Layout) -->
+    <!-- OVERLAY: CAMERA -->
     <div id="cameraOverlay" class="overlay">
         <div class="cam-tools">
             <button class="tool-btn" onclick="closeCamera()">Cancel</button>
-            
-            <!-- Zoom Controls moved to top -->
             <div id="zoomControls" style="display:none;">
                 <span>-</span>
                 <input type="range" id="zoomSlider" min="1" max="5" step="0.1" value="1">
                 <span>+</span>
             </div>
-
             <button class="tool-btn" id="btnFlash" onclick="toggleFlash()">⚡ Off</button>
         </div>
-        
         <div class="cam-view">
             <video id="cameraFeed" autoplay playsinline></video>
         </div>
-        
         <div class="cam-controls">
             <button class="shutter-btn" onclick="takePhoto()"></button>
         </div>
@@ -514,6 +505,17 @@
         </div>
     </div>
 
+    <!-- OVERLAY: PHOTO VIEWER (NEW) -->
+    <div id="photoViewerOverlay" class="overlay">
+        <div class="viewer-stage">
+            <img id="viewerImage" style="max-width: 100%; display: none;">
+        </div>
+        <div class="viewer-controls">
+            <button class="btn btn-reset" onclick="closeViewer()">Back</button>
+            <button class="btn btn-danger" onclick="deleteFromViewer()">Delete Photo</button>
+        </div>
+    </div>
+
     <!-- MODAL: LOADING -->
     <div id="loadingModal" class="modal-backdrop">
         <div class="modal-box">
@@ -531,7 +533,6 @@
                 prod: false,
                 si: false,
                 resolved: 'NA',
-                // New Photo Toggles (Default to false)
                 beforeTaken: false,
                 afterTaken: false,
                 signoffTaken: false
@@ -539,7 +540,9 @@
             photos: { before: [], after: [], signoff: [] },
             currentPhotoCategory: null,
             cameraStream: null,
-            cropper: null
+            cropper: null,
+            viewerCropper: null,
+            viewerState: { cat: null, idx: null }
         };
 
         // --- INIT ---
@@ -570,103 +573,7 @@
             saveData();
         }
 
-        // --- VALIDATION & SUBMIT ---
-        function validateAndSubmit() {
-            // Clear previous errors
-            document.querySelectorAll('.field-group').forEach(el => el.classList.remove('error-state'));
-            let firstError = null;
-
-            const req = (id, parentId) => {
-                const el = document.getElementById(id);
-                if (!el.value.trim()) {
-                    markError(parentId || `fg-${id}`);
-                    return false;
-                }
-                return true;
-            };
-
-            const markError = (id) => {
-                const el = document.getElementById(id);
-                if (el) {
-                    el.classList.add('error-state');
-                    if (!firstError) firstError = el;
-                }
-            };
-
-            // 1. Identification
-            if (!/^\d{3}$/.test(document.getElementById('storeNumber').value)) markError('fg-store');
-            
-            const dVal = document.getElementById('workDate').value;
-            if (!dVal) markError('fg-date');
-            else {
-                const inputDate = new Date(dVal);
-                const today = new Date();
-                today.setHours(23,59,59,999);
-                if(inputDate > today) markError('fg-date');
-            }
-
-            req('leadName', 'fg-lead');
-            req('checkInManager', 'fg-inMgr');
-
-            // 2. Photos (Removed strict array length check, using toggles now)
-            // No validation needed here as "No" is a valid option per prompt
-            // But we could force them to select Yes/No if we wanted. Currently defaulting to No is safe.
-
-            // 3. Issues
-            if (state.data.hotline) {
-                req('commodities', 'fg-comm');
-                req('issueDesc', 'fg-issue');
-                if (document.getElementById('issueResolved').value === 'No') {
-                    req('tempSolution', 'tempSolutionGroup');
-                }
-            }
-            req('checkOutManager', 'fg-outMgr');
-
-            // 4. Signature
-            const canvas = document.getElementById('sigCanvas');
-            if (isCanvasBlank(canvas)) markError('fg-sig');
-
-            // Result
-            if (firstError) {
-                firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            } else {
-                finishEOD();
-            }
-        }
-
-        async function finishEOD() {
-            document.getElementById('loadingModal').style.display = 'flex';
-            
-            try {
-                const pdfBytes = await generatePDF();
-                const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-                
-                const store = document.getElementById('storeNumber').value.padStart(3,'0');
-                const dateObj = new Date(document.getElementById('workDate').value);
-                const dateStr = `${String(dateObj.getMonth()+1).padStart(2,'0')}_${String(dateObj.getDate()).padStart(2,'0')}_${dateObj.getFullYear()}`;
-                const filename = `KOMPASS EOD Cover Sheet FM${store} ${dateStr}.pdf`;
-
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = filename;
-                link.click();
-
-                const emailTo = document.getElementById('emailTo').value;
-                const cc = "aiyana.natarisalazar@retailodyssey.com; tyson.gauthier@retailodyssey.com";
-                const subject = `KOMPASS EOD FM${store} ${dateObj.toLocaleDateString()}`;
-                const body = `Attached: EOD Report for Store ${store}.\n\nLead: ${document.getElementById('leadName').value}\nNotes: ${document.getElementById('notes').value}`;
-                
-                window.location.href = `mailto:${emailTo}?cc=${cc}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-
-            } catch (e) {
-                alert("Error: " + e.message);
-                console.error(e);
-            } finally {
-                document.getElementById('loadingModal').style.display = 'none';
-            }
-        }
-
-        // --- PHOTOS, CAMERA, EDITOR ---
+        // --- PHOTOS SYSTEM ---
         async function launchCamera(category) {
             state.currentPhotoCategory = category;
             const overlay = document.getElementById('cameraOverlay');
@@ -698,7 +605,7 @@
                 document.getElementById('btnFlash').style.display = capabilities.torch ? 'block' : 'none';
 
             } catch (err) {
-                alert("Camera unavailable. Please check permissions.");
+                alert("Camera unavailable. Check permissions.");
             }
         }
 
@@ -739,6 +646,7 @@
             input.value = '';
         }
 
+        // --- EDITOR ---
         function openEditor(imageUrl) {
             const overlay = document.getElementById('editorOverlay');
             const img = document.getElementById('editorImage');
@@ -756,13 +664,8 @@
             if (!state.cropper) return;
             const category = state.currentPhotoCategory;
             const canvas = state.cropper.getCroppedCanvas({ maxWidth: 1200, maxHeight: 1200 });
-            
-            // Save Photo
             state.photos[category].push(canvas.toDataURL('image/jpeg', 0.8));
-            
-            // Auto-Set Toggle to YES
             setToggle(category + 'Taken', true);
-            
             closeEditor(true);
             renderPhotos(category);
             saveData();
@@ -782,26 +685,65 @@
             state.photos[category].forEach((src, idx) => {
                 const wrapper = document.createElement('div');
                 wrapper.className = 'photo-slot photo-item-wrapper';
+                // Onclick opens the viewer
+                wrapper.onclick = () => openViewer(category, idx);
                 wrapper.innerHTML = `
                     <img src="${src}">
                     <div class="photo-actions">
-                        <button class="mini-btn btn-delete" onclick="deletePhoto('${category}', ${idx})">Delete</button>
+                        <span style="color:white; font-weight:bold; font-size:0.8rem">View</span>
                     </div>
                 `;
                 container.insertBefore(wrapper, container.children[container.children.length - 2]);
             });
         }
 
-        function deletePhoto(cat, idx) {
-            state.photos[cat].splice(idx, 1);
-            // If no photos left, maybe toggle back to No? 
-            // The request didn't specify, but usually safer to leave as Yes if they manually set it, 
-            // or flip to No if they remove all evidence. I'll flip to No if empty.
-            if(state.photos[cat].length === 0) {
-                setToggle(cat + 'Taken', false);
+        // --- PHOTO VIEWER ---
+        function openViewer(cat, idx) {
+            state.viewerState = { cat, idx };
+            const src = state.photos[cat][idx];
+            const img = document.getElementById('viewerImage');
+            const overlay = document.getElementById('photoViewerOverlay');
+            
+            img.src = src;
+            img.style.display = 'block';
+            overlay.classList.add('active');
+
+            if(state.viewerCropper) state.viewerCropper.destroy();
+            
+            // Use Cropper in "view only" mode for pan/zoom
+            state.viewerCropper = new Cropper(img, {
+                viewMode: 2, // Constrain to container
+                dragMode: 'move', // Pan/Zoom only
+                autoCrop: false, // No crop box
+                background: false,
+                modal: true, 
+                guides: false,
+                center: false,
+                highlight: false,
+                toggleDragModeOnDblclick: false
+            });
+        }
+
+        function closeViewer() {
+            document.getElementById('photoViewerOverlay').classList.remove('active');
+            if(state.viewerCropper) state.viewerCropper.destroy();
+            state.viewerCropper = null;
+        }
+
+        function deleteFromViewer() {
+            if(confirm("Are you sure you want to delete this photo?")) {
+                const { cat, idx } = state.viewerState;
+                state.photos[cat].splice(idx, 1);
+                
+                // If empty, maybe toggle No? (Optional logic)
+                if(state.photos[cat].length === 0) {
+                    setToggle(cat + 'Taken', false);
+                }
+
+                renderPhotos(cat);
+                saveData();
+                closeViewer();
             }
-            renderPhotos(cat);
-            saveData();
         }
 
         // --- SIGNATURE ---
@@ -858,7 +800,7 @@
             return !pixelBuffer.some(color => color !== 0);
         }
 
-        // --- DATA & RESET ---
+        // --- DATA & VALIDATION ---
         function saveData() {
             const d = {
                 store: document.getElementById('storeNumber').value,
@@ -874,11 +816,11 @@
                 photos: state.photos,
                 emailTo: document.getElementById('emailTo').value
             };
-            localStorage.setItem('kompass_v22_data', JSON.stringify(d));
+            localStorage.setItem('kompass_v23_data', JSON.stringify(d));
         }
 
         function loadSavedData() {
-            const raw = localStorage.getItem('kompass_v22_data');
+            const raw = localStorage.getItem('kompass_v23_data');
             if (!raw) return;
             const d = JSON.parse(raw);
 
@@ -901,7 +843,6 @@
                     document.getElementById('issueResolved').value = d.toggles.resolved;
                     handleResolvedChange();
                 }
-                // Load new toggles
                 setToggle('beforeTaken', d.toggles.beforeTaken || false);
                 setToggle('afterTaken', d.toggles.afterTaken || false);
                 setToggle('signoffTaken', d.toggles.signoffTaken || false);
@@ -915,22 +856,80 @@
             }
         }
 
+        function validateAndSubmit() {
+            document.querySelectorAll('.field-group').forEach(el => el.classList.remove('error-state'));
+            let firstError = null;
+            const markError = (id) => {
+                const el = document.getElementById(id);
+                if (el) { el.classList.add('error-state'); if (!firstError) firstError = el; }
+            };
+            const req = (id, pid) => {
+                const el = document.getElementById(id);
+                if (!el.value.trim()) { markError(pid || `fg-${id}`); return false; }
+                return true;
+            };
+
+            if (!/^\d{3}$/.test(document.getElementById('storeNumber').value)) markError('fg-store');
+            if (!document.getElementById('workDate').value) markError('fg-date');
+            req('leadName', 'fg-lead');
+            req('checkInManager', 'fg-inMgr');
+
+            if (state.data.hotline) {
+                req('commodities', 'fg-comm');
+                req('issueDesc', 'fg-issue');
+                if (document.getElementById('issueResolved').value === 'No') req('tempSolution', 'tempSolutionGroup');
+            }
+            req('checkOutManager', 'fg-outMgr');
+            
+            const canvas = document.getElementById('sigCanvas');
+            if (isCanvasBlank(canvas)) markError('fg-sig');
+
+            if (firstError) firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            else finishEOD();
+        }
+
+        async function finishEOD() {
+            document.getElementById('loadingModal').style.display = 'flex';
+            try {
+                const pdfBytes = await generatePDF();
+                const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+                const store = document.getElementById('storeNumber').value.padStart(3,'0');
+                const dateObj = new Date(document.getElementById('workDate').value);
+                const dateStr = `${String(dateObj.getMonth()+1).padStart(2,'0')}_${String(dateObj.getDate()).padStart(2,'0')}_${dateObj.getFullYear()}`;
+                const filename = `KOMPASS EOD Cover Sheet FM${store} ${dateStr}.pdf`;
+
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = filename;
+                link.click();
+
+                const emailTo = document.getElementById('emailTo').value;
+                const cc = "aiyana.natarisalazar@retailodyssey.com; tyson.gauthier@retailodyssey.com";
+                const subject = `KOMPASS EOD FM${store} ${dateObj.toLocaleDateString()}`;
+                const body = `Attached: EOD Report for Store ${store}.\n\nLead: ${document.getElementById('leadName').value}\nNotes: ${document.getElementById('notes').value}`;
+                window.location.href = `mailto:${emailTo}?cc=${cc}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+            } catch (e) {
+                alert("Error: " + e.message);
+            } finally {
+                document.getElementById('loadingModal').style.display = 'none';
+            }
+        }
+
         function resetForm() {
             if(confirm("Clear all data and photos?")) {
-                localStorage.removeItem('kompass_v22_data');
+                localStorage.removeItem('kompass_v23_data');
                 location.reload();
             }
         }
 
-        // --- PDF GENERATION ---
+        // --- PDF GEN ---
         async function generatePDF() {
             const url = 'End Of Day Cover Sheet Form Editable Template.pdf';
             const existingPdfBytes = await fetch(url).then(res => res.arrayBuffer());
             const pdfDoc = await PDFLib.PDFDocument.load(existingPdfBytes);
             const form = pdfDoc.getForm();
-
             const getVal = (id) => document.getElementById(id).value;
-            
+
             try {
                 form.getTextField('LeadName').setText(getVal('leadName'));
                 form.getTextField('DateISO').setText(getVal('workDate'));
@@ -951,11 +950,8 @@
 
                 form.getRadioGroup('SignedOutPROD').select(state.data.prod ? 'Yes' : 'No');
                 form.getRadioGroup('SignedOutSI').select(state.data.si ? 'Yes' : 'No');
-                
-                // Use the new explicit toggles for PDF checkboxes
                 form.getRadioGroup('BeforePicPosted').select(state.data.beforeTaken ? 'Yes' : 'No');
                 form.getRadioGroup('AfterPicPosted').select(state.data.afterTaken ? 'Yes' : 'No');
-                
                 const so = state.data.signoffTaken;
                 form.getRadioGroup('SignoutSheetAttachedEmail').select(so ? 'Yes' : 'No');
                 form.getRadioGroup('SignoutSheetAttachedPROD').select(so ? 'Yes' : 'No');
@@ -967,12 +963,10 @@
                         pdfDoc.getPages()[0].drawImage(sigImg, { x: 400, y: 80, width: 150, height: 50 });
                     }
                 }
-
-            } catch (e) { console.warn("Mapping error", e); }
+            } catch (e) { console.warn(e); }
 
             form.flatten();
 
-            // Photo Pages
             const allPhotos = [
                 ...state.photos.before.map(p => ({t: 'Before', d: p})),
                 ...state.photos.after.map(p => ({t: 'After', d: p})),
@@ -982,7 +976,6 @@
             if (allPhotos.length > 0) {
                 const page = pdfDoc.addPage();
                 let y = page.getHeight() - 50;
-                
                 for (const p of allPhotos) {
                     if (y < 300) { y = page.getHeight() - 50; pdfDoc.addPage(); }
                     page.drawText(p.t, { x: 50, y, size: 18 });
