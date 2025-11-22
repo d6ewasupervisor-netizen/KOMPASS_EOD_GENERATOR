@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>KOMPASS EOD System v3.1</title>
+    <title>KOMPASS EOD System v3.2</title>
     
     <!-- Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js"></script>
@@ -263,15 +263,22 @@
         }
         #editorImage { max-width: 100%; max-height: 100%; display: block; object-fit: contain; }
 
+        /* Updated Button Layout: 2x2 Grid */
         .editor-toolbar-custom {
             flex-shrink: 0; padding: 15px; background: var(--surface);
-            display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+            display: grid; grid-template-columns: 1fr 1fr; /* Two columns */
+            grid-template-rows: 1fr 1fr; /* Two rows */
+            gap: 10px;
             box-shadow: 0 -2px 10px rgba(0,0,0,0.5); z-index: 2055;
         }
         .editor-toolbar-custom button {
-            padding: 14px; border-radius: 8px; border: none; font-weight: bold; color: white; cursor: pointer; font-size: 0.9rem;
+            padding: 14px; border-radius: 8px; border: none; 
+            font-weight: bold; color: white; cursor: pointer; font-size: 0.9rem;
+            height: 100%; width: 100%;
+            display: flex; align-items: center; justify-content: center; text-align: center;
         }
-        .btn-save-done { background: var(--success); grid-column: span 2; font-size: 1rem; }
+        
+        .btn-save-done { background: var(--success); } /* Removed grid span */
         .btn-save-more { background: var(--primary); }
         .btn-retry { background: var(--secondary); }
         .btn-exit { background: var(--danger); }
@@ -325,16 +332,15 @@
             
             <div class="field-group" id="fg-store">
                 <label>Store Number *</label>
-                <!-- Droplist re-verified -->
                 <select id="storeNumber" onchange="saveData()">
                     <option value="" disabled selected>Select Store...</option>
+                    <!-- Populated via JS -->
                 </select>
                 <div class="error-msg">Select a store number</div>
             </div>
 
             <div class="field-group" id="fg-date">
                 <label>Date *</label>
-                <!-- Added this.blur() to close picker -->
                 <input type="date" id="workDate" onchange="this.blur(); saveData()">
                 <div class="error-msg">Date cannot be in the future</div>
             </div>
@@ -906,11 +912,11 @@
                 photos: state.photos,
                 emailTo: document.getElementById('emailTo').value
             };
-            localStorage.setItem('kompass_v31_data', JSON.stringify(d));
+            localStorage.setItem('kompass_v32_data', JSON.stringify(d));
         }
 
         function loadSavedData() {
-            const raw = localStorage.getItem('kompass_v31_data');
+            const raw = localStorage.getItem('kompass_v32_data');
             if (!raw) return;
             const d = JSON.parse(raw);
 
@@ -1039,7 +1045,7 @@ ${getVal('notes')}`;
 
         function resetForm() {
             if(confirm("Clear all data and photos?")) {
-                localStorage.removeItem('kompass_v31_data');
+                localStorage.removeItem('kompass_v32_data');
                 location.reload();
             }
         }
