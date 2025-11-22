@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>KOMPASS EOD System v2.8</title>
+    <title>KOMPASS EOD System v2.9</title>
     
     <!-- Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js"></script>
@@ -254,33 +254,19 @@
         #zoomControls { display: flex; align-items: center; gap: 10px; flex: 1; justify-content: center; margin: 0 15px; }
         input[type=range] { flex: 1; max-width: 150px; height: 4px; }
 
-        /* --- Editor (FIXED OVERFLOW) --- */
+        /* --- Editor --- */
         #editorOverlay { z-index: 2050; } 
         
         .editor-stage { 
-            flex: 1; 
-            background: #111; 
-            position: relative; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            overflow: hidden; /* Crucial fix */
-            min-height: 0; /* Crucial for flex child sizing */
+            flex: 1; background: #111; position: relative; display: flex; 
+            align-items: center; justify-content: center; overflow: hidden; min-height: 0; 
         }
-        
-        /* Ensure image stays inside */
-        #editorImage {
-            max-width: 100%;
-            max-height: 100%;
-            display: block;
-            object-fit: contain;
-        }
+        #editorImage { max-width: 100%; max-height: 100%; display: block; object-fit: contain; }
 
         .editor-toolbar-custom {
             flex-shrink: 0; padding: 15px; background: var(--surface);
             display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
-            box-shadow: 0 -2px 10px rgba(0,0,0,0.5);
-            z-index: 2055;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.5); z-index: 2055;
         }
         .editor-toolbar-custom button {
             padding: 14px; border-radius: 8px; border: none; font-weight: bold; color: white; cursor: pointer; font-size: 0.9rem;
@@ -291,9 +277,7 @@
         .btn-exit { background: var(--danger); }
 
         /* --- Viewer --- */
-        .viewer-stage {
-            flex: 1; background: #000; position: relative; overflow: hidden;
-        }
+        .viewer-stage { flex: 1; background: #000; position: relative; overflow: hidden; }
         .viewer-controls {
             position: absolute; bottom: 30px; left: 0; right: 0;
             display: flex; justify-content: center; gap: 25px;
@@ -494,7 +478,7 @@
 
             <div class="field-group">
                 <label>General Notes</label>
-                <textarea id="notes" rows="5" placeholder="Please enter details about any sets that were marked Non-Executable and please remember to ensure that exceptions must match in both PROD and SI and a comment made in the comment bubble in PROD as to why as well as recorded here" onchange="saveData()"></textarea>
+                <textarea id="notes" rows="5" placeholder="Enter details about sets that were marked Not-Executable and remember that exceptions must match in both PROD and SI. Additionally, a comment must be made in the comment bubble in PROD and recorded here with details regarding the exception." onchange="saveData()"></textarea>
             </div>
         </div>
 
@@ -548,7 +532,6 @@
 
     <!-- OVERLAY: EDITOR -->
     <div id="editorOverlay" class="overlay">
-        <!-- Backup Save Button at Top -->
         <div class="cam-tools" style="background: rgba(0,0,0,0.7); justify-content: flex-end;">
             <button class="tool-btn" style="background: var(--success);" onclick="editorAction('save-close')">Save</button>
         </div>
@@ -741,7 +724,6 @@
             overlay.classList.add('active');
             if (state.cropper) state.cropper.destroy();
             
-            // Reset any residual display props
             img.style.display = 'block';
             
             state.cropper = new Cropper(img, { 
@@ -923,11 +905,11 @@
                 photos: state.photos,
                 emailTo: document.getElementById('emailTo').value
             };
-            localStorage.setItem('kompass_v28_data', JSON.stringify(d));
+            localStorage.setItem('kompass_v29_data', JSON.stringify(d));
         }
 
         function loadSavedData() {
-            const raw = localStorage.getItem('kompass_v28_data');
+            const raw = localStorage.getItem('kompass_v29_data');
             if (!raw) return;
             const d = JSON.parse(raw);
 
@@ -1053,7 +1035,7 @@ ${getVal('notes')}`;
 
         function resetForm() {
             if(confirm("Clear all data and photos?")) {
-                localStorage.removeItem('kompass_v28_data');
+                localStorage.removeItem('kompass_v29_data');
                 location.reload();
             }
         }
@@ -1082,6 +1064,9 @@ ${getVal('notes')}`;
                     if (resolved === 'No') form.getTextField('TempSolution').setText(getVal('tempSolution'));
                 } else {
                     form.getRadioGroup('CalledHotline').select('No');
+                    form.getTextField('IssueCommodities').setText('N/A');
+                    form.getTextField('WhatIsIssue').setText('N/A');
+                    try { form.getRadioGroup('IssueResolved').select('NA'); } catch(e) {}
                 }
 
                 form.getRadioGroup('SignedOutPROD').select(state.data.prod ? 'Yes' : 'No');
