@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>KOMPASS EOD System v3.2</title>
+    <title>KOMPASS EOD System v3.3</title>
     
     <!-- Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js"></script>
@@ -263,22 +263,15 @@
         }
         #editorImage { max-width: 100%; max-height: 100%; display: block; object-fit: contain; }
 
-        /* Updated Button Layout: 2x2 Grid */
         .editor-toolbar-custom {
             flex-shrink: 0; padding: 15px; background: var(--surface);
-            display: grid; grid-template-columns: 1fr 1fr; /* Two columns */
-            grid-template-rows: 1fr 1fr; /* Two rows */
-            gap: 10px;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
             box-shadow: 0 -2px 10px rgba(0,0,0,0.5); z-index: 2055;
         }
         .editor-toolbar-custom button {
-            padding: 14px; border-radius: 8px; border: none; 
-            font-weight: bold; color: white; cursor: pointer; font-size: 0.9rem;
-            height: 100%; width: 100%;
-            display: flex; align-items: center; justify-content: center; text-align: center;
+            padding: 14px; border-radius: 8px; border: none; font-weight: bold; color: white; cursor: pointer; font-size: 0.9rem;
         }
-        
-        .btn-save-done { background: var(--success); } /* Removed grid span */
+        .btn-save-done { background: var(--success); }
         .btn-save-more { background: var(--primary); }
         .btn-retry { background: var(--secondary); }
         .btn-exit { background: var(--danger); }
@@ -912,11 +905,11 @@
                 photos: state.photos,
                 emailTo: document.getElementById('emailTo').value
             };
-            localStorage.setItem('kompass_v32_data', JSON.stringify(d));
+            localStorage.setItem('kompass_v33_data', JSON.stringify(d));
         }
 
         function loadSavedData() {
-            const raw = localStorage.getItem('kompass_v32_data');
+            const raw = localStorage.getItem('kompass_v33_data');
             if (!raw) return;
             const d = JSON.parse(raw);
 
@@ -990,24 +983,18 @@
             
             try {
                 const pdfBytes = await generatePDF();
-                const blob = new Blob([pdfBytes], { type: 'application/pdf' });
                 const store = getVal('storeNumber').padStart(3,'0');
-                
-                const dateVal = getVal('workDate'); // YYYY-MM-DD
+                const dateVal = getVal('workDate');
                 const [dy, dm, dd] = dateVal.split('-');
                 const dateStr = `${dm}_${dd}_${dy}`;
-                
                 const filename = `KOMPASS EOD Cover Sheet FM${store} ${dateStr}.pdf`;
-
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = filename;
-                link.click();
+                
+                // Create File from Bytes
+                const file = new File([pdfBytes], filename, { type: 'application/pdf' });
 
                 const emailTo = getVal('emailTo');
                 const cc = "aiyana.natarisalazar@retailodyssey.com; tyson.gauthier@retailodyssey.com";
                 const subject = `KOMPASS EOD FM${store} ${dm}/${dd}/${dy}`;
-                
                 const yn = (val) => val ? 'Yes' : 'No';
                 const naIfFalse = (cond, val) => cond ? val : 'N/A';
                 
@@ -1035,7 +1022,26 @@ Number of sign-off photos: ${state.photos.signoff.length}
 Notes:
 ${getVal('notes')}`;
 
-                window.location.href = `mailto:${emailTo}?cc=${cc}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                // --- WEB SHARE API (Native Attachment) ---
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    try {
+                        await navigator.share({
+                            files: [file],
+                            title: subject,
+                            text: body
+                        });
+                    } catch (shareError) {
+                        if (shareError.name !== 'AbortError') throw shareError; // User cancelled, ignore
+                    }
+                } else {
+                    // --- FALLBACK: DOWNLOAD + MAILTO ---
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(file);
+                    link.download = filename;
+                    link.click();
+                    window.location.href = `mailto:${emailTo}?cc=${cc}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                }
+
             } catch (e) {
                 alert("Error: " + e.message);
             } finally {
@@ -1045,7 +1051,7 @@ ${getVal('notes')}`;
 
         function resetForm() {
             if(confirm("Clear all data and photos?")) {
-                localStorage.removeItem('kompass_v32_data');
+                localStorage.removeItem('kompass_v33_data');
                 location.reload();
             }
         }
@@ -1058,7 +1064,6 @@ ${getVal('notes')}`;
             const form = pdfDoc.getForm();
             const getVal = (id) => document.getElementById(id).value;
 
-            // Header
             const store = getVal('storeNumber').padStart(3,'0');
             const dateVal = getVal('workDate');
             const [dy, dm, dd] = dateVal.split('-');
