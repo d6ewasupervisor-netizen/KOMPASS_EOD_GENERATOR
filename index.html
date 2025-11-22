@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>KOMPASS EOD System v3.4</title>
+    <title>KOMPASS EOD System v3.3</title>
     
     <!-- Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js"></script>
@@ -269,8 +269,12 @@
             box-shadow: 0 -2px 10px rgba(0,0,0,0.5); z-index: 2055;
         }
         .editor-toolbar-custom button {
-            padding: 14px; border-radius: 8px; border: none; font-weight: bold; color: white; cursor: pointer; font-size: 0.9rem;
+            padding: 14px; border-radius: 8px; border: none; 
+            font-weight: bold; color: white; cursor: pointer; font-size: 0.9rem;
+            height: 100%; width: 100%;
+            display: flex; align-items: center; justify-content: center; text-align: center;
         }
+        
         .btn-save-done { background: var(--success); }
         .btn-save-more { background: var(--primary); }
         .btn-retry { background: var(--secondary); }
@@ -289,16 +293,15 @@
             border: 2px solid rgba(255,255,255,0.1);
         }
 
-        /* Modal Backdrops */
+        /* Loading Modal */
         .modal-backdrop {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 3000;
+            position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 3000;
             display: none; align-items: center; justify-content: center;
         }
         .modal-box {
             background: var(--surface); padding: 25px; border-radius: 12px;
             width: 90%; max-width: 350px; text-align: center;
             box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-            border: 1px solid var(--secondary);
         }
         .spinner {
             width: 40px; height: 40px; border: 4px solid var(--secondary);
@@ -306,34 +309,6 @@
             margin: 0 auto 15px auto; animation: spin 1s linear infinite;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-
-        /* Copy Field Styling */
-        .copy-field-group {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 15px;
-        }
-        .copy-input {
-            flex: 1;
-            background: #000;
-            border: 1px solid var(--secondary);
-            color: var(--accent);
-            padding: 10px;
-            font-size: 0.9rem;
-            border-radius: 6px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .btn-copy {
-            background: var(--secondary);
-            border: none;
-            border-radius: 6px;
-            padding: 0 15px;
-            cursor: pointer;
-            color: white;
-            font-size: 1.2rem;
-        }
-        .btn-copy:active { background: var(--primary); }
 
     </style>
 </head>
@@ -432,7 +407,7 @@
                     <div class="toggle-option selected" onclick="setToggle('signoffTaken', false)">No</div>
                 </div>
 
-                <label style="font-size: 0.85rem; margin-top: 10px;">Add Photos</label>
+                <label style="font-size: 0.85rem; margin-top: 10px; color: var(--accent);">Add Photos (Smart Scan Enabled)</label>
                 <div class="photo-grid" id="grid-signoff">
                     <div class="photo-slot add-photo-btn" onclick="launchCamera('signoff')">
                         <span>📷</span><div>Cam</div>
@@ -593,33 +568,7 @@
         <div class="modal-box">
             <div class="spinner"></div>
             <h3 style="color: var(--accent);">Processing</h3>
-            <p>Generating PDF...</p>
-        </div>
-    </div>
-
-    <!-- MODAL: READY TO SEND (Share Fix) -->
-    <div id="shareModal" class="modal-backdrop">
-        <div class="modal-box" style="text-align:left;">
-            <h3 class="section-title" style="justify-content:center;">Ready to Send</h3>
-            <p style="font-size:0.9rem; margin-bottom:15px; color:var(--text-muted); text-align:center;">
-                The Share menu cannot auto-fill email addresses. 
-                <br>Please copy them below before sharing.
-            </p>
-            
-            <label>To:</label>
-            <div class="copy-field-group">
-                <input type="text" id="modalTo" class="copy-input" readonly>
-                <button class="btn-copy" onclick="copyText('modalTo')">📋</button>
-            </div>
-
-            <label>CC:</label>
-            <div class="copy-field-group">
-                <input type="text" id="modalCC" class="copy-input" readonly>
-                <button class="btn-copy" onclick="copyText('modalCC')">📋</button>
-            </div>
-
-            <button class="btn btn-submit" style="width:100%; margin-top:10px;" onclick="triggerNativeShare()">🚀 Share PDF to App</button>
-            <button class="btn btn-reset" style="width:100%; margin-top:10px; background:transparent; color:var(--text-muted); border:1px solid var(--secondary);" onclick="closeShareModal()">Cancel</button>
+            <p>Generating PDF and preparing email...</p>
         </div>
     </div>
 
@@ -653,8 +602,7 @@
             cameraStream: null,
             cropper: null,
             viewerCropper: null,
-            viewerState: { cat: null, idx: null },
-            tempShareData: null // Holds data for share modal
+            viewerState: { cat: null, idx: null }
         };
 
         // --- INIT ---
@@ -693,7 +641,9 @@
             saveData();
         }
 
-        // --- PHOTOS SYSTEM ---
+        // --- PHOTOS SYSTEM (With Flash Reset) ---
+        let flashEnabled = false; // Track flash state
+
         async function launchCamera(category) {
             state.currentPhotoCategory = category;
             const overlay = document.getElementById('cameraOverlay');
@@ -703,9 +653,17 @@
             video.style.opacity = "0";
             loader.style.display = "block";
             
+            // FORCE RESET FLASH UI & STATE
+            flashEnabled = false;
+            document.getElementById('btnFlash').innerText = '⚡ Off';
+
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: 'environment', width: { ideal: 1920 } } 
+                    video: { 
+                        facingMode: 'environment', 
+                        width: { ideal: 4096 }, // Request 4K if available
+                        height: { ideal: 2160 } 
+                    } 
                 });
                 state.cameraStream = stream;
                 video.srcObject = stream;
@@ -742,7 +700,7 @@
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             canvas.getContext('2d').drawImage(video, 0, 0);
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+            const dataUrl = canvas.toDataURL('image/jpeg', 1.0); // MAX Quality
             openEditor(dataUrl);
         }
 
@@ -752,14 +710,25 @@
                 state.cameraStream = null;
             }
             document.getElementById('cameraOverlay').classList.remove('active');
+            
+            // Reset Flash State Logic
+            flashEnabled = false;
+            document.getElementById('btnFlash').innerText = '⚡ Off';
         }
 
         function toggleFlash() {
             if (!state.cameraStream) return;
             const track = state.cameraStream.getVideoTracks()[0];
-            const current = track.getSettings().torch || false;
-            track.applyConstraints({ advanced: [{ torch: !current }] });
-            document.getElementById('btnFlash').innerText = !current ? '⚡ On' : '⚡ Off';
+            const capabilities = track.getCapabilities();
+            
+            if (capabilities.torch) {
+                flashEnabled = !flashEnabled;
+                track.applyConstraints({ advanced: [{ torch: flashEnabled }] })
+                    .then(() => {
+                        document.getElementById('btnFlash').innerText = flashEnabled ? '⚡ On' : '⚡ Off';
+                    })
+                    .catch(e => console.error(e));
+            }
         }
 
         function handleFileUpload(input, category) {
@@ -772,7 +741,7 @@
             input.value = '';
         }
 
-        // --- EDITOR ---
+        // --- EDITOR & DOCUMENT FILTER ---
         function openEditor(imageUrl) {
             const overlay = document.getElementById('editorOverlay');
             const img = document.getElementById('editorImage');
@@ -791,6 +760,37 @@
             });
         }
 
+        function applyDocumentFilter(sourceCanvas) {
+            const ctx = sourceCanvas.getContext('2d');
+            const imgData = ctx.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
+            const data = imgData.data;
+
+            // High Contrast Grayscale Algorithm
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                // Grayscale luminance
+                let gray = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+                
+                // Contrast Boost
+                // Simple thresholding or S-curve is too harsh, use linear contrast stretch
+                const factor = 1.5; // Contrast factor (1.0 is normal)
+                gray = factor * (gray - 128) + 128;
+                
+                // Clamp
+                if (gray > 255) gray = 255;
+                if (gray < 0) gray = 0;
+
+                data[i] = gray;
+                data[i + 1] = gray;
+                data[i + 2] = gray;
+            }
+            
+            ctx.putImageData(imgData, 0, 0);
+            return sourceCanvas;
+        }
+
         function editorAction(action) {
             if (!state.cropper) return;
             
@@ -805,8 +805,17 @@
             }
 
             const category = state.currentPhotoCategory;
-            const canvas = state.cropper.getCroppedCanvas({ maxWidth: 1200, maxHeight: 1200 });
-            state.photos[category].push(canvas.toDataURL('image/jpeg', 0.8));
+            let canvas = state.cropper.getCroppedCanvas({ maxWidth: 2500, maxHeight: 2500 });
+            
+            // Apply "Smart Scan" if Signoff Sheet
+            if (category === 'signoff') {
+                canvas = applyDocumentFilter(canvas);
+            }
+
+            // Save at 1.0 quality for signoffs (documents), 0.8 for regular photos
+            const quality = category === 'signoff' ? 1.0 : 0.8;
+            
+            state.photos[category].push(canvas.toDataURL('image/jpeg', quality));
             setToggle(category + 'Taken', true);
             renderPhotos(category);
             saveData();
@@ -961,11 +970,11 @@
                 photos: state.photos,
                 emailTo: document.getElementById('emailTo').value
             };
-            localStorage.setItem('kompass_v34_data', JSON.stringify(d));
+            localStorage.setItem('kompass_v33_data', JSON.stringify(d));
         }
 
         function loadSavedData() {
-            const raw = localStorage.getItem('kompass_v34_data');
+            const raw = localStorage.getItem('kompass_v33_data');
             if (!raw) return;
             const d = JSON.parse(raw);
 
@@ -1039,17 +1048,33 @@
             
             try {
                 const pdfBytes = await generatePDF();
+                const blob = new Blob([pdfBytes], { type: 'application/pdf' });
                 const store = getVal('storeNumber').padStart(3,'0');
                 const dateVal = getVal('workDate');
                 const [dy, dm, dd] = dateVal.split('-');
                 const dateStr = `${dm}_${dd}_${dy}`;
                 const filename = `KOMPASS EOD Cover Sheet FM${store} ${dateStr}.pdf`;
-                
-                const file = new File([pdfBytes], filename, { type: 'application/pdf' });
 
-                const emailTo = getVal('emailTo');
-                const cc = "aiyana.natarisalazar@retailodyssey.com; tyson.gauthier@retailodyssey.com";
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = filename;
+                link.click();
+
+                // NEW: Combined Email Logic
+                const fixedRecipients = [
+                    "KNix@retailodyssey.com",
+                    "Seth.Newman@retailodyssey.com",
+                    "MAshabranner@retailodyssey.com",
+                    "aiyana.natarisalazar@retailodyssey.com",
+                    "tyson.gauthier@retailodyssey.com"
+                ];
+                const managerEmail = getVal('emailTo');
+                
+                // Filter removes empty strings if user didn't enter manager email
+                const allTo = [managerEmail, ...fixedRecipients].filter(Boolean).join(',');
+
                 const subject = `KOMPASS EOD FM${store} ${dm}/${dd}/${dy}`;
+                
                 const yn = (val) => val ? 'Yes' : 'No';
                 const naIfFalse = (cond, val) => cond ? val : 'N/A';
                 
@@ -1077,66 +1102,18 @@ Number of sign-off photos: ${state.photos.signoff.length}
 Notes:
 ${getVal('notes')}`;
 
-                // Populate Share Modal Data
-                document.getElementById('modalTo').value = emailTo;
-                document.getElementById('modalCC').value = cc;
-                
-                state.tempShareData = {
-                    files: [file],
-                    title: subject,
-                    text: body
-                };
-
-                // If Share API not supported, just download and mailto immediately
-                if (!navigator.canShare || !navigator.canShare({ files: [file] })) {
-                    const link = document.createElement('a');
-                    link.href = URL.createObjectURL(file);
-                    link.download = filename;
-                    link.click();
-                    window.location.href = `mailto:${emailTo}?cc=${cc}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-                    document.getElementById('loadingModal').style.display = 'none';
-                    return;
-                }
-
-                // Otherwise show custom modal
-                document.getElementById('loadingModal').style.display = 'none';
-                document.getElementById('shareModal').style.display = 'flex';
-
+                // Removed CC parameter, all in TO
+                window.location.href = `mailto:${allTo}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
             } catch (e) {
                 alert("Error: " + e.message);
+            } finally {
                 document.getElementById('loadingModal').style.display = 'none';
             }
-        }
-
-        function copyText(id) {
-            const el = document.getElementById(id);
-            el.select();
-            el.setSelectionRange(0, 99999); // Mobile
-            navigator.clipboard.writeText(el.value).then(() => {
-                const btn = el.nextElementSibling;
-                const orig = btn.textContent;
-                btn.textContent = "✅";
-                setTimeout(() => btn.textContent = orig, 1500);
-            });
-        }
-
-        async function triggerNativeShare() {
-            if (state.tempShareData) {
-                try {
-                    await navigator.share(state.tempShareData);
-                } catch (err) {
-                    if (err.name !== 'AbortError') alert("Share failed: " + err.message);
-                }
-            }
-        }
-
-        function closeShareModal() {
-            document.getElementById('shareModal').style.display = 'none';
         }
 
         function resetForm() {
             if(confirm("Clear all data and photos?")) {
-                localStorage.removeItem('kompass_v34_data');
+                localStorage.removeItem('kompass_v33_data');
                 location.reload();
             }
         }
@@ -1173,6 +1150,8 @@ ${getVal('notes')}`;
                     form.getTextField('IssueCommodities').setText('N/A');
                     form.getTextField('WhatIsIssue').setText('N/A');
                     try { form.getRadioGroup('IssueResolved').select('NA'); } catch(e) {}
+                    // NEW: Explicitly set Temp Solution to N/A
+                    form.getTextField('TempSolution').setText('N/A');
                 }
 
                 form.getRadioGroup('SignedOutPROD').select(state.data.prod ? 'Yes' : 'No');
@@ -1218,7 +1197,11 @@ ${getVal('notes')}`;
                 const { width, height } = page.getSize();
                 const img = await pdfDoc.embedJpg(state.photos.signoff[i]);
                 page.drawText(`Sign-Off Sheet ${i + 1}`, { x: 50, y: 750, size: 18 });
-                const dims = img.scaleToFit(512, 680);
+                
+                // Changed logic here: Use available width (minus margins) to maximize visibility
+                // Letter page is 612 wide. 50 margin L/R = 512 max width.
+                // Max height available is approx 700
+                const dims = img.scaleToFit(512, 700); 
                 page.drawImage(img, { x: (width - dims.width) / 2, y: 730 - dims.height, width: dims.width, height: dims.height });
             }
 
