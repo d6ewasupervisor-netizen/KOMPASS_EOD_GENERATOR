@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>KOMPASS EOD System v2.9</title>
+    <title>KOMPASS EOD System v3.0</title>
     
     <!-- Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js"></script>
@@ -905,11 +905,11 @@
                 photos: state.photos,
                 emailTo: document.getElementById('emailTo').value
             };
-            localStorage.setItem('kompass_v29_data', JSON.stringify(d));
+            localStorage.setItem('kompass_v30_data', JSON.stringify(d));
         }
 
         function loadSavedData() {
-            const raw = localStorage.getItem('kompass_v29_data');
+            const raw = localStorage.getItem('kompass_v30_data');
             if (!raw) return;
             const d = JSON.parse(raw);
 
@@ -920,204 +920,4 @@
             document.getElementById('checkOutManager').value = d.outMgr || '';
             document.getElementById('commodities').value = d.commodities || '';
             document.getElementById('issueDesc').value = d.issue || '';
-            document.getElementById('tempSolution').value = d.temp || '';
-            document.getElementById('notes').value = d.notes || '';
-            document.getElementById('emailTo').value = d.emailTo || '';
-
-            if(d.toggles) {
-                setToggle('hotline', d.toggles.hotline);
-                setToggle('prod', d.toggles.prod);
-                setToggle('si', d.toggles.si);
-                if(d.toggles.resolved) {
-                    document.getElementById('issueResolved').value = d.toggles.resolved;
-                    handleResolvedChange();
-                }
-                setToggle('beforeTaken', d.toggles.beforeTaken || false);
-                setToggle('afterTaken', d.toggles.afterTaken || false);
-                setToggle('signoffTaken', d.toggles.signoffTaken || false);
-            }
-
-            if(d.photos) {
-                state.photos = d.photos;
-                renderPhotos('before');
-                renderPhotos('after');
-                renderPhotos('signoff');
-            }
-        }
-
-        function validateAndSubmit() {
-            document.querySelectorAll('.field-group').forEach(el => el.classList.remove('error-state'));
-            let firstError = null;
-            const markError = (id) => {
-                const el = document.getElementById(id);
-                if (el) { el.classList.add('error-state'); if (!firstError) firstError = el; }
-            };
-            const req = (id, pid) => {
-                const el = document.getElementById(id);
-                if (!el.value.trim()) { markError(pid || `fg-${id}`); return false; }
-                return true;
-            };
-
-            if (!document.getElementById('storeNumber').value) markError('fg-store');
-            if (!document.getElementById('workDate').value) markError('fg-date');
-            req('leadName', 'fg-lead');
-            req('checkInManager', 'fg-inMgr');
-
-            if (state.data.hotline) {
-                req('commodities', 'fg-comm');
-                req('issueDesc', 'fg-issue');
-                if (document.getElementById('issueResolved').value === 'No') req('tempSolution', 'tempSolutionGroup');
-            }
-            req('checkOutManager', 'fg-outMgr');
-            
-            const canvas = document.getElementById('sigCanvas');
-            if (isCanvasBlank(canvas)) markError('fg-sig');
-
-            if (firstError) firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            else finishEOD();
-        }
-
-        async function finishEOD() {
-            document.getElementById('loadingModal').style.display = 'flex';
-            const getVal = (id) => document.getElementById(id).value;
-            
-            try {
-                const pdfBytes = await generatePDF();
-                const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-                const store = getVal('storeNumber').padStart(3,'0');
-                const dateObj = new Date(getVal('workDate'));
-                const dateStr = `${String(dateObj.getMonth()+1).padStart(2,'0')}_${String(dateObj.getDate()).padStart(2,'0')}_${dateObj.getFullYear()}`;
-                const filename = `KOMPASS EOD Cover Sheet FM${store} ${dateStr}.pdf`;
-
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = filename;
-                link.click();
-
-                const emailTo = getVal('emailTo');
-                const cc = "aiyana.natarisalazar@retailodyssey.com; tyson.gauthier@retailodyssey.com";
-                const subject = `KOMPASS EOD FM${store} ${dateObj.toLocaleDateString()}`;
-                
-                const yn = (val) => val ? 'Yes' : 'No';
-                const naIfFalse = (cond, val) => cond ? val : 'N/A';
-                
-                const body = `Lead Name: ${getVal('leadName')}
-Date: ${getVal('workDate')}
-Store Number: ${getVal('storeNumber')}
-
-Before picture of KOMPASS cart taken: ${yn(state.data.beforeTaken)}
-Manager checked in with: ${getVal('checkInManager')}
-
-Called KOMPASS Hotline: ${yn(state.data.hotline)}
-Commodities: ${naIfFalse(state.data.hotline, getVal('commodities'))}
-Issue: ${naIfFalse(state.data.hotline, getVal('issueDesc'))}
-Issue resolved: ${naIfFalse(state.data.hotline, state.data.resolved)}
-Temporary solution: ${(state.data.hotline && state.data.resolved === 'No') ? getVal('tempSolution') : 'N/A'}
-
-Manager checked out with: ${getVal('checkOutManager')}
-Signed out in PROD: ${yn(state.data.prod)}
-Signed out in SI: ${yn(state.data.si)}
-
-After picture of KOMPASS cart taken: ${yn(state.data.afterTaken)}
-Sign-off sheets photographed: ${yn(state.data.signoffTaken)}
-Number of sign-off photos: ${state.photos.signoff.length}
-
-Notes:
-${getVal('notes')}`;
-
-                window.location.href = `mailto:${emailTo}?cc=${cc}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-            } catch (e) {
-                alert("Error: " + e.message);
-            } finally {
-                document.getElementById('loadingModal').style.display = 'none';
-            }
-        }
-
-        function resetForm() {
-            if(confirm("Clear all data and photos?")) {
-                localStorage.removeItem('kompass_v29_data');
-                location.reload();
-            }
-        }
-
-        // --- PDF GEN ---
-        async function generatePDF() {
-            const url = 'End Of Day Cover Sheet Form Editable Template.pdf';
-            const existingPdfBytes = await fetch(url).then(res => res.arrayBuffer());
-            const pdfDoc = await PDFLib.PDFDocument.load(existingPdfBytes);
-            const form = pdfDoc.getForm();
-            const getVal = (id) => document.getElementById(id).value;
-
-            try {
-                form.getTextField('LeadName').setText(getVal('leadName'));
-                form.getTextField('DateISO').setText(getVal('workDate'));
-                form.getTextField('StoreNumber').setText(getVal('storeNumber'));
-                form.getTextField('CheckInManager').setText(getVal('checkInManager'));
-                form.getTextField('CheckOutManager').setText(getVal('checkOutManager'));
-                
-                if (state.data.hotline) {
-                    form.getRadioGroup('CalledHotline').select('Yes');
-                    form.getTextField('IssueCommodities').setText(getVal('commodities'));
-                    form.getTextField('WhatIsIssue').setText(getVal('issueDesc'));
-                    const resolved = document.getElementById('issueResolved').value;
-                    if (resolved !== 'NA') form.getRadioGroup('IssueResolved').select(resolved === 'Yes' ? 'Yes' : 'No');
-                    if (resolved === 'No') form.getTextField('TempSolution').setText(getVal('tempSolution'));
-                } else {
-                    form.getRadioGroup('CalledHotline').select('No');
-                    form.getTextField('IssueCommodities').setText('N/A');
-                    form.getTextField('WhatIsIssue').setText('N/A');
-                    try { form.getRadioGroup('IssueResolved').select('NA'); } catch(e) {}
-                }
-
-                form.getRadioGroup('SignedOutPROD').select(state.data.prod ? 'Yes' : 'No');
-                form.getRadioGroup('SignedOutSI').select(state.data.si ? 'Yes' : 'No');
-                form.getRadioGroup('BeforePicPosted').select(state.data.beforeTaken ? 'Yes' : 'No');
-                form.getRadioGroup('AfterPicPosted').select(state.data.afterTaken ? 'Yes' : 'No');
-                const so = state.data.signoffTaken;
-                form.getRadioGroup('SignoutSheetAttachedEmail').select(so ? 'Yes' : 'No');
-                form.getRadioGroup('SignoutSheetAttachedPROD').select(so ? 'Yes' : 'No');
-
-                const canvas = document.getElementById('sigCanvas');
-                if (!isCanvasBlank(canvas)) {
-                    const sigImg = await pdfDoc.embedPng(canvas.toDataURL());
-                    try { form.getButton('LeadSignatureImage').setImage(sigImg); } catch(e) {
-                        pdfDoc.getPages()[0].drawImage(sigImg, { x: 400, y: 80, width: 150, height: 50 });
-                    }
-                }
-            } catch (e) { console.warn(e); }
-
-            form.flatten();
-
-            const hasBefore = state.photos.before.length > 0;
-            const hasAfter = state.photos.after.length > 0;
-            if (hasBefore || hasAfter) {
-                const page = pdfDoc.addPage();
-                const { width, height } = page.getSize();
-                if (hasBefore) {
-                    const img = await pdfDoc.embedJpg(state.photos.before[0]);
-                    page.drawText('Kompass Cart - Before', { x: 50, y: 750, size: 18 });
-                    const dims = img.scaleToFit(512, 320);
-                    page.drawImage(img, { x: (width - dims.width) / 2, y: 730 - dims.height, width: dims.width, height: dims.height });
-                }
-                if (hasAfter) {
-                    const img = await pdfDoc.embedJpg(state.photos.after[0]);
-                    page.drawText('Kompass Cart - After', { x: 50, y: 380, size: 18 });
-                    const dims = img.scaleToFit(512, 320);
-                    page.drawImage(img, { x: (width - dims.width) / 2, y: 360 - dims.height, width: dims.width, height: dims.height });
-                }
-            }
-
-            for (let i = 0; i < state.photos.signoff.length; i++) {
-                const page = pdfDoc.addPage();
-                const { width, height } = page.getSize();
-                const img = await pdfDoc.embedJpg(state.photos.signoff[i]);
-                page.drawText(`Sign-Off Sheet ${i + 1}`, { x: 50, y: 750, size: 18 });
-                const dims = img.scaleToFit(512, 680);
-                page.drawImage(img, { x: (width - dims.width) / 2, y: 730 - dims.height, width: dims.width, height: dims.height });
-            }
-
-            return await pdfDoc.save();
-        }
-    </script>
-</body>
-</html>
+            docum
