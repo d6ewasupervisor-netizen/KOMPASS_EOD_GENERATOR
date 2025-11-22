@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>KOMPASS EOD System v3.3</title>
+    <title>KOMPASS EOD System v3.4</title>
     
     <!-- Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js"></script>
@@ -289,15 +289,16 @@
             border: 2px solid rgba(255,255,255,0.1);
         }
 
-        /* Loading Modal */
+        /* Modal Backdrops */
         .modal-backdrop {
-            position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 3000;
+            position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 3000;
             display: none; align-items: center; justify-content: center;
         }
         .modal-box {
             background: var(--surface); padding: 25px; border-radius: 12px;
             width: 90%; max-width: 350px; text-align: center;
             box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            border: 1px solid var(--secondary);
         }
         .spinner {
             width: 40px; height: 40px; border: 4px solid var(--secondary);
@@ -305,6 +306,34 @@
             margin: 0 auto 15px auto; animation: spin 1s linear infinite;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Copy Field Styling */
+        .copy-field-group {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        .copy-input {
+            flex: 1;
+            background: #000;
+            border: 1px solid var(--secondary);
+            color: var(--accent);
+            padding: 10px;
+            font-size: 0.9rem;
+            border-radius: 6px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .btn-copy {
+            background: var(--secondary);
+            border: none;
+            border-radius: 6px;
+            padding: 0 15px;
+            cursor: pointer;
+            color: white;
+            font-size: 1.2rem;
+        }
+        .btn-copy:active { background: var(--primary); }
 
     </style>
 </head>
@@ -564,7 +593,33 @@
         <div class="modal-box">
             <div class="spinner"></div>
             <h3 style="color: var(--accent);">Processing</h3>
-            <p>Generating PDF and preparing email...</p>
+            <p>Generating PDF...</p>
+        </div>
+    </div>
+
+    <!-- MODAL: READY TO SEND (Share Fix) -->
+    <div id="shareModal" class="modal-backdrop">
+        <div class="modal-box" style="text-align:left;">
+            <h3 class="section-title" style="justify-content:center;">Ready to Send</h3>
+            <p style="font-size:0.9rem; margin-bottom:15px; color:var(--text-muted); text-align:center;">
+                The Share menu cannot auto-fill email addresses. 
+                <br>Please copy them below before sharing.
+            </p>
+            
+            <label>To:</label>
+            <div class="copy-field-group">
+                <input type="text" id="modalTo" class="copy-input" readonly>
+                <button class="btn-copy" onclick="copyText('modalTo')">📋</button>
+            </div>
+
+            <label>CC:</label>
+            <div class="copy-field-group">
+                <input type="text" id="modalCC" class="copy-input" readonly>
+                <button class="btn-copy" onclick="copyText('modalCC')">📋</button>
+            </div>
+
+            <button class="btn btn-submit" style="width:100%; margin-top:10px;" onclick="triggerNativeShare()">🚀 Share PDF to App</button>
+            <button class="btn btn-reset" style="width:100%; margin-top:10px; background:transparent; color:var(--text-muted); border:1px solid var(--secondary);" onclick="closeShareModal()">Cancel</button>
         </div>
     </div>
 
@@ -598,7 +653,8 @@
             cameraStream: null,
             cropper: null,
             viewerCropper: null,
-            viewerState: { cat: null, idx: null }
+            viewerState: { cat: null, idx: null },
+            tempShareData: null // Holds data for share modal
         };
 
         // --- INIT ---
@@ -905,11 +961,11 @@
                 photos: state.photos,
                 emailTo: document.getElementById('emailTo').value
             };
-            localStorage.setItem('kompass_v33_data', JSON.stringify(d));
+            localStorage.setItem('kompass_v34_data', JSON.stringify(d));
         }
 
         function loadSavedData() {
-            const raw = localStorage.getItem('kompass_v33_data');
+            const raw = localStorage.getItem('kompass_v34_data');
             if (!raw) return;
             const d = JSON.parse(raw);
 
@@ -989,7 +1045,6 @@
                 const dateStr = `${dm}_${dd}_${dy}`;
                 const filename = `KOMPASS EOD Cover Sheet FM${store} ${dateStr}.pdf`;
                 
-                // Create File from Bytes
                 const file = new File([pdfBytes], filename, { type: 'application/pdf' });
 
                 const emailTo = getVal('emailTo');
@@ -1022,36 +1077,66 @@ Number of sign-off photos: ${state.photos.signoff.length}
 Notes:
 ${getVal('notes')}`;
 
-                // --- WEB SHARE API (Native Attachment) ---
-                if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                    try {
-                        await navigator.share({
-                            files: [file],
-                            title: subject,
-                            text: body
-                        });
-                    } catch (shareError) {
-                        if (shareError.name !== 'AbortError') throw shareError; // User cancelled, ignore
-                    }
-                } else {
-                    // --- FALLBACK: DOWNLOAD + MAILTO ---
+                // Populate Share Modal Data
+                document.getElementById('modalTo').value = emailTo;
+                document.getElementById('modalCC').value = cc;
+                
+                state.tempShareData = {
+                    files: [file],
+                    title: subject,
+                    text: body
+                };
+
+                // If Share API not supported, just download and mailto immediately
+                if (!navigator.canShare || !navigator.canShare({ files: [file] })) {
                     const link = document.createElement('a');
                     link.href = URL.createObjectURL(file);
                     link.download = filename;
                     link.click();
                     window.location.href = `mailto:${emailTo}?cc=${cc}&subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+                    document.getElementById('loadingModal').style.display = 'none';
+                    return;
                 }
+
+                // Otherwise show custom modal
+                document.getElementById('loadingModal').style.display = 'none';
+                document.getElementById('shareModal').style.display = 'flex';
 
             } catch (e) {
                 alert("Error: " + e.message);
-            } finally {
                 document.getElementById('loadingModal').style.display = 'none';
             }
         }
 
+        function copyText(id) {
+            const el = document.getElementById(id);
+            el.select();
+            el.setSelectionRange(0, 99999); // Mobile
+            navigator.clipboard.writeText(el.value).then(() => {
+                const btn = el.nextElementSibling;
+                const orig = btn.textContent;
+                btn.textContent = "✅";
+                setTimeout(() => btn.textContent = orig, 1500);
+            });
+        }
+
+        async function triggerNativeShare() {
+            if (state.tempShareData) {
+                try {
+                    await navigator.share(state.tempShareData);
+                } catch (err) {
+                    if (err.name !== 'AbortError') alert("Share failed: " + err.message);
+                }
+            }
+        }
+
+        function closeShareModal() {
+            document.getElementById('shareModal').style.display = 'none';
+        }
+
         function resetForm() {
             if(confirm("Clear all data and photos?")) {
-                localStorage.removeItem('kompass_v33_data');
+                localStorage.removeItem('kompass_v34_data');
                 location.reload();
             }
         }
