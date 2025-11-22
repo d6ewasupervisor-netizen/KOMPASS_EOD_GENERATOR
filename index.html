@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>KOMPASS EOD System v3.6</title>
+    <title>KOMPASS EOD System v3.7</title>
     
     <!-- Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js"></script>
@@ -534,9 +534,7 @@
 
     <!-- OVERLAY: CAMERA -->
     <div id="cameraOverlay" class="overlay">
-        <!-- Hold Still Message -->
         <div id="holdStillToast">⚠️ Hold Still - Capturing in 3...</div>
-
         <div class="cam-tools">
             <button class="tool-btn" onclick="closeCamera()">Cancel</button>
             <div id="zoomControls" style="display:none;">
@@ -604,13 +602,55 @@
             
             <p class="step-text">2. Share the PDF & Paste addresses:</p>
             <p style="font-size: 0.8rem; color: #aaa; margin-bottom: 10px;">The PDF is attached automatically. Please PASTE the copied addresses into the 'To' field.</p>
-            <button class="btn btn-success" style="width:100%;" onclick="sharePDF()">🚀 Share & Open Mail</button>
+            <button class="btn btn-success" style="width:100%; margin-bottom: 10px;" onclick="sharePDF()">🚀 Share & Open Mail</button>
+            
+            <button class="btn btn-danger" style="width:100%;" onclick="resetForm()">🔄 Start New Report</button>
             
             <button class="mini-btn btn-danger" style="margin-top:20px; background:transparent; color:#666;" onclick="document.getElementById('emailModal').style.display='none'">Close</button>
         </div>
     </div>
 
     <script>
+        // --- INDEXEDDB SETUP (QUOTA FIX) ---
+        const dbName = 'KompassDB_v2';
+        const storeName = 'photos';
+
+        function openDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(dbName, 1);
+                request.onupgradeneeded = (e) => {
+                    if (!e.target.result.objectStoreNames.contains(storeName)) {
+                        e.target.result.createObjectStore(storeName);
+                    }
+                };
+                request.onsuccess = (e) => resolve(e.target.result);
+                request.onerror = (e) => reject(e.target.error);
+            });
+        }
+
+        async function saveToIDB(key, value) {
+            const db = await openDB();
+            const tx = db.transaction(storeName, 'readwrite');
+            tx.objectStore(storeName).put(value, key);
+            return new Promise(resolve => tx.oncomplete = resolve);
+        }
+
+        async function getFromIDB(key) {
+            const db = await openDB();
+            const tx = db.transaction(storeName, 'readonly');
+            const request = tx.objectStore(storeName).get(key);
+            return new Promise(resolve => {
+                request.onsuccess = () => resolve(request.result);
+            });
+        }
+
+        async function clearIDB() {
+            const db = await openDB();
+            const tx = db.transaction(storeName, 'readwrite');
+            tx.objectStore(storeName).clear();
+            return new Promise(resolve => tx.oncomplete = resolve);
+        }
+
         // --- STORE NUMBERS ---
         const storeList = [5,7,11,13,17,18,19,21,23,24,25,28,30,31,35,40,41,49,50,51,53,60,63,70,71,75,90,93,111,122,125,126,127,135,140,143,150,153,156,158,163,165,171,180,185,186,195,196,198,208,209,210,214,215,218,220,224,225,226,227,236,240,242,255,260,265,281,285,286,325,328,351,355,360,372,375,377,383,390,391,393,417,424,439,449,457,458,459,460,462,464,482,485,486,516,600,603,604,605,608,613,614,615,649,650,651,652,653,654,655,656,657,658,659,660,661,662,663,665,667,668,681,682,683,685,688,691,694];
 
@@ -634,7 +674,65 @@
             setupSignature(); loadSavedData();
         });
 
-        // --- FORM LOGIC ---
+        // --- DATA LOGIC (UPDATED ASYNC) ---
+        async function saveData() {
+            const d = {
+                store: document.getElementById('storeNumber').value,
+                date: document.getElementById('workDate').value,
+                lead: document.getElementById('leadName').value,
+                inMgr: document.getElementById('checkInManager').value,
+                outMgr: document.getElementById('checkOutManager').value,
+                commodities: document.getElementById('commodities').value,
+                issue: document.getElementById('issueDesc').value,
+                temp: document.getElementById('tempSolution').value,
+                notes: document.getElementById('notes').value,
+                toggles: state.data,
+                emailTo: document.getElementById('emailTo').value
+            };
+            // Save text to LS, Photos to IDB
+            localStorage.setItem('kompass_v37_text', JSON.stringify(d));
+            await saveToIDB('photos', state.photos);
+        }
+
+        async function loadSavedData() {
+            // Load Text
+            const raw = localStorage.getItem('kompass_v37_text');
+            if (raw) {
+                const d = JSON.parse(raw);
+                document.getElementById('storeNumber').value = d.store || '';
+                document.getElementById('workDate').value = d.date || '';
+                document.getElementById('leadName').value = d.lead || '';
+                document.getElementById('checkInManager').value = d.inMgr || '';
+                document.getElementById('checkOutManager').value = d.outMgr || '';
+                document.getElementById('commodities').value = d.commodities || '';
+                document.getElementById('issueDesc').value = d.issue || '';
+                document.getElementById('tempSolution').value = d.temp || '';
+                document.getElementById('notes').value = d.notes || '';
+                document.getElementById('emailTo').value = d.emailTo || '';
+                
+                if(d.toggles) {
+                    state.data = d.toggles;
+                    setToggle('hotline', d.toggles.hotline);
+                    setToggle('prod', d.toggles.prod);
+                    setToggle('si', d.toggles.si);
+                    if(d.toggles.resolved) {
+                        document.getElementById('issueResolved').value = d.toggles.resolved;
+                        handleResolvedChange();
+                    }
+                    setToggle('beforeTaken', d.toggles.beforeTaken || false);
+                    setToggle('afterTaken', d.toggles.afterTaken || false);
+                    setToggle('signoffTaken', d.toggles.signoffTaken || false);
+                }
+            }
+
+            // Load Photos from IDB
+            const savedPhotos = await getFromIDB('photos');
+            if(savedPhotos) {
+                state.photos = savedPhotos;
+                renderPhotos('before'); renderPhotos('after'); renderPhotos('signoff');
+            }
+        }
+
         function setToggle(key, value) {
             state.data[key] = value;
             const container = document.getElementById(`tg-${key}`);
@@ -650,7 +748,7 @@
             saveData();
         }
 
-        // --- PHOTOS SYSTEM ---
+        // --- PHOTOS ---
         let flashEnabled = false;
 
         async function launchCamera(category) {
@@ -658,15 +756,10 @@
             const overlay = document.getElementById('cameraOverlay');
             const video = document.getElementById('cameraFeed');
             const loader = document.getElementById('camLoader');
-            
             video.style.opacity = "0"; loader.style.display = "block";
-            
-            // Reset Flash
-            flashEnabled = false;
-            document.getElementById('btnFlash').innerText = '⚡ Off';
+            flashEnabled = false; document.getElementById('btnFlash').innerText = '⚡ Off';
 
             try {
-                // Reduce resolution slightly to prevent memory crash (2560px)
                 const stream = await navigator.mediaDevices.getUserMedia({ 
                     video: { facingMode: 'environment', width: { ideal: 2560 }, height: { ideal: 1440 } } 
                 });
@@ -675,7 +768,6 @@
                 overlay.classList.add('active');
                 video.onloadedmetadata = () => { loader.style.display = "none"; video.style.opacity = "1"; };
 
-                // Auto Flash for Sign-Offs
                 const track = stream.getVideoTracks()[0];
                 const capabilities = track.getCapabilities();
                 const zoomCtrl = document.getElementById('zoomControls');
@@ -687,35 +779,26 @@
 
                 if(capabilities.torch) {
                     document.getElementById('btnFlash').style.display = 'block';
-                    // Auto turn on for signoff
                     if(category === 'signoff') {
                         flashEnabled = true;
                         track.applyConstraints({ advanced: [{ torch: true }] });
                         document.getElementById('btnFlash').innerText = '⚡ On';
                     }
-                } else {
-                    document.getElementById('btnFlash').style.display = 'none';
-                }
+                } else document.getElementById('btnFlash').style.display = 'none';
 
             } catch (err) { alert("Camera unavailable. Check permissions."); }
         }
 
-        // HOLD STILL TIMER LOGIC
         function startCaptureSequence() {
             const toast = document.getElementById('holdStillToast');
             const btn = document.getElementById('shutterBtn');
-            
-            btn.disabled = true;
-            toast.style.display = 'block';
-            
+            btn.disabled = true; toast.style.display = 'block';
             let count = 3;
             toast.innerText = `⚠️ Hold Still - Capturing in ${count}...`;
-            
             const interval = setInterval(() => {
                 count--;
-                if(count > 0) {
-                    toast.innerText = `⚠️ Hold Still - Capturing in ${count}...`;
-                } else {
+                if(count > 0) toast.innerText = `⚠️ Hold Still - Capturing in ${count}...`;
+                else {
                     clearInterval(interval);
                     takePhoto();
                     toast.style.display = 'none';
@@ -727,10 +810,9 @@
         function takePhoto() {
             const video = document.getElementById('cameraFeed');
             const canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
             canvas.getContext('2d').drawImage(video, 0, 0);
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.95); // High quality
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
             openEditor(dataUrl);
         }
 
@@ -748,16 +830,6 @@
                 track.applyConstraints({ advanced: [{ torch: flashEnabled }] })
                     .then(() => { document.getElementById('btnFlash').innerText = flashEnabled ? '⚡ On' : '⚡ Off'; });
             }
-        }
-
-        function handleFileUpload(input, category) {
-            state.currentPhotoCategory = category;
-            if (input.files && input.files[0]) {
-                const reader = new FileReader();
-                reader.onload = (e) => openEditor(e.target.result);
-                reader.readAsDataURL(input.files[0]);
-            }
-            input.value = '';
         }
 
         function openEditor(imageUrl) {
@@ -786,43 +858,42 @@
 
         async function editorAction(action) {
             if (!state.cropper) return;
-            
-            // Show loading state on buttons
             const btns = document.querySelectorAll('.editor-toolbar-custom button');
             btns.forEach(b => b.disabled = true);
             
             try {
                 if (action === 'exit') { closeEditor(); closeCamera(); }
-                else if (action === 'retry') { closeEditor(); } // Camera stays open
+                else if (action === 'retry') { closeEditor(); }
                 else {
-                    // Save Logic
                     const category = state.currentPhotoCategory;
-                    // Max width 2500px to prevent crash
                     let canvas = state.cropper.getCroppedCanvas({ maxWidth: 2500, maxHeight: 2500 });
-                    
                     if (category === 'signoff') canvas = applyDocumentFilter(canvas);
                     const quality = category === 'signoff' ? 1.0 : 0.8;
-                    
                     state.photos[category].push(canvas.toDataURL('image/jpeg', quality));
                     setToggle(category + 'Taken', true);
                     renderPhotos(category);
-                    saveData();
+                    await saveData(); // Await IndexedDB save
                     closeEditor();
-                    
                     if (action === 'save-close') closeCamera();
                 }
             } catch (e) {
-                alert("Error saving photo (Out of memory?): " + e.message);
+                alert("Error saving photo: " + e.message);
                 closeEditor();
             } finally {
                 btns.forEach(b => { b.disabled = false; });
             }
         }
         
-        function closeEditor() {
-            document.getElementById('editorOverlay').classList.remove('active');
-            if (state.cropper) state.cropper.destroy();
-            state.cropper = null;
+        function closeEditor() { document.getElementById('editorOverlay').classList.remove('active'); if (state.cropper) state.cropper.destroy(); state.cropper = null; }
+        
+        function handleFileUpload(input, category) {
+            state.currentPhotoCategory = category;
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = (e) => openEditor(e.target.result);
+                reader.readAsDataURL(input.files[0]);
+            }
+            input.value = '';
         }
 
         function renderPhotos(category) {
@@ -838,10 +909,7 @@
             });
         }
 
-        // ... [Viewer, Signature, Data, Validation code remains identical to v3.5] ...
-        // I'm omitting repeating identical blocks for brevity unless requested, 
-        // but the provided full block below includes everything needed.
-
+        // --- VIEWER/SIG ---
         function openViewer(cat, idx) {
             state.viewerState = { cat, idx };
             const src = state.photos[cat][idx];
@@ -884,25 +952,7 @@
         }
         function clearSignature() { const canvas = document.getElementById('sigCanvas'); canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height); document.getElementById('sigPlaceholder').style.display = 'block'; }
         function isCanvasBlank(canvas) { const context = canvas.getContext('2d'); const pixelBuffer = new Uint32Array(context.getImageData(0, 0, canvas.width, canvas.height).data.buffer); return !pixelBuffer.some(color => color !== 0); }
-        function saveData() {
-            const d = {
-                store: document.getElementById('storeNumber').value, date: document.getElementById('workDate').value,
-                lead: document.getElementById('leadName').value, inMgr: document.getElementById('checkInManager').value,
-                outMgr: document.getElementById('checkOutManager').value, commodities: document.getElementById('commodities').value,
-                issue: document.getElementById('issueDesc').value, temp: document.getElementById('tempSolution').value,
-                notes: document.getElementById('notes').value, toggles: state.data, photos: state.photos, emailTo: document.getElementById('emailTo').value
-            }; localStorage.setItem('kompass_v36_data', JSON.stringify(d));
-        }
-        function loadSavedData() {
-            const raw = localStorage.getItem('kompass_v36_data'); if (!raw) return; const d = JSON.parse(raw);
-            document.getElementById('storeNumber').value = d.store || ''; document.getElementById('workDate').value = d.date || '';
-            document.getElementById('leadName').value = d.lead || ''; document.getElementById('checkInManager').value = d.inMgr || '';
-            document.getElementById('checkOutManager').value = d.outMgr || ''; document.getElementById('commodities').value = d.commodities || '';
-            document.getElementById('issueDesc').value = d.issue || ''; document.getElementById('tempSolution').value = d.temp || '';
-            document.getElementById('notes').value = d.notes || ''; document.getElementById('emailTo').value = d.emailTo || '';
-            if(d.toggles) { setToggle('hotline', d.toggles.hotline); setToggle('prod', d.toggles.prod); setToggle('si', d.toggles.si); if(d.toggles.resolved) { document.getElementById('issueResolved').value = d.toggles.resolved; handleResolvedChange(); } setToggle('beforeTaken', d.toggles.beforeTaken || false); setToggle('afterTaken', d.toggles.afterTaken || false); setToggle('signoffTaken', d.toggles.signoffTaken || false); }
-            if(d.photos) { state.photos = d.photos; renderPhotos('before'); renderPhotos('after'); renderPhotos('signoff'); }
-        }
+
         function validateAndSubmit() {
             document.querySelectorAll('.field-group').forEach(el => el.classList.remove('error-state')); let firstError = null;
             const markError = (id) => { const el = document.getElementById(id); if (el) { el.classList.add('error-state'); if (!firstError) firstError = el; } };
@@ -913,6 +963,7 @@
             req('checkOutManager', 'fg-outMgr'); if (isCanvasBlank(document.getElementById('sigCanvas'))) markError('fg-sig');
             if (firstError) firstError.scrollIntoView({ behavior: 'smooth', block: 'center' }); else finishEOD();
         }
+
         async function finishEOD() {
             document.getElementById('loadingModal').style.display = 'flex';
             try {
@@ -933,10 +984,12 @@
                 document.getElementById('emailModal').style.display = 'flex';
             } catch (e) { alert("Error: " + e.message); document.getElementById('loadingModal').style.display = 'none'; }
         }
+
         function copyToClipboard() {
             const text = state.shareData.email;
             navigator.clipboard.writeText(text).then(() => { alert("Addresses copied!"); }).catch(err => { const textArea = document.createElement("textarea"); textArea.value = text; document.body.appendChild(textArea); textArea.select(); document.execCommand("Copy"); textArea.remove(); alert("Addresses copied!"); });
         }
+
         async function sharePDF() {
             const { file, subject, body } = state.shareData;
             if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -947,7 +1000,14 @@
                 window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
             }
         }
-        function resetForm() { if(confirm("Clear all data?")) { localStorage.removeItem('kompass_v36_data'); location.reload(); } }
+
+        function resetForm() {
+            if(confirm("Clear all data and photos? This cannot be undone.")) {
+                localStorage.removeItem('kompass_v37_text');
+                clearIDB().then(() => location.reload());
+            }
+        }
+
         async function generatePDF() {
             const url = 'End Of Day Cover Sheet Form Editable Template.pdf';
             const existingPdfBytes = await fetch(url).then(res => res.arrayBuffer());
