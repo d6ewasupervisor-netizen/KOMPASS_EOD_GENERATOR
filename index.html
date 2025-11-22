@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>KOMPASS EOD System v2.5</title>
+    <title>KOMPASS EOD System v2.6</title>
     
     <!-- Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/pdf-lib/dist/pdf-lib.min.js"></script>
@@ -23,6 +23,8 @@
             --text-main: #f9fafb;
             --text-muted: #d1d5db;
             --accent: #88c4ed;
+            --highlight-border: #60a5fa;
+            --highlight-bg: #1f2937;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -32,7 +34,7 @@
             background: var(--background);
             color: var(--text-main);
             height: 100vh;
-            height: 100dvh; /* Mobile viewport fix */
+            height: 100dvh;
             display: flex;
             flex-direction: column;
             overflow: hidden; 
@@ -41,13 +43,14 @@
         /* --- Header --- */
         .app-header {
             background: var(--surface);
-            padding: 12px;
+            padding: 15px;
             text-align: center;
             box-shadow: 0 2px 10px rgba(0,0,0,0.3);
             z-index: 10;
             flex-shrink: 0;
         }
-        .header-logo { max-height: 35px; margin-bottom: 5px; }
+        /* Logo increased size ~2x */
+        .header-logo { max-height: 70px; margin-bottom: 5px; }
         .app-title { color: var(--accent); font-size: 1.1rem; font-weight: 700; margin: 0; }
 
         /* --- Main Content Area --- */
@@ -55,7 +58,7 @@
             flex: 1;
             overflow-y: auto;
             padding: 15px;
-            padding-bottom: 100px; /* Space for footer */
+            padding-bottom: 100px;
             scroll-behavior: smooth;
         }
 
@@ -94,12 +97,19 @@
 
         input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); }
         
+        /* Highlighted Manager Fields */
+        .manager-field {
+            background-color: var(--highlight-bg) !important;
+            border: 2px solid var(--highlight-border) !important;
+            box-shadow: 0 0 10px rgba(96, 165, 250, 0.1);
+        }
+        
         /* Error States */
         .field-group.error-state input, 
         .field-group.error-state textarea,
         .field-group.error-state select,
         .field-group.error-state canvas { 
-            border-color: var(--danger); 
+            border-color: var(--danger) !important; 
             box-shadow: 0 0 0 1px var(--danger);
         }
         
@@ -158,7 +168,6 @@
         .add-photo-btn span { font-size: 1.5rem; }
 
         /* --- Signature --- */
-        /* Height is flexible for landscape */
         .sig-pad-container { 
             background: white; 
             border-radius: 8px; 
@@ -172,7 +181,6 @@
         canvas#sigCanvas { width: 100%; height: 100%; display: block; }
         .sig-overlay-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #999; pointer-events: none; font-style: italic; }
         
-        /* Landscape mode for signature */
         @media (orientation: landscape) and (max-height: 600px) {
             .sig-pad-container { height: 250px; }
         }
@@ -217,7 +225,6 @@
         }
         .overlay.active { display: flex; }
 
-        /* Common Top Bar */
         .cam-tools {
             flex-shrink: 0; z-index: 2010;
             padding: 15px; background: rgba(0,0,0,0.5);
@@ -225,16 +232,13 @@
         }
         .tool-btn { background: rgba(255,255,255,0.2); color: white; border: none; padding: 8px 15px; border-radius: 20px; backdrop-filter: blur(4px); font-weight: bold; }
 
-        /* Camera Specific */
         .cam-view {
             flex: 1; position: relative; overflow: hidden;
             display: flex; align-items: center; justify-content: center; background: #000;
         }
         
-        /* Hide video initially to prevent flicker */
         video#cameraFeed { width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity 0.3s ease-in; }
         
-        /* Camera Loading Spinner */
         .cam-loader {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.3);
@@ -256,11 +260,23 @@
         input[type=range] { flex: 1; max-width: 150px; height: 4px; }
 
         /* --- Editor Specific --- */
+        /* Z-index higher than camera to sit on top */
+        #editorOverlay { z-index: 2050; } 
+
         .editor-stage { flex: 1; background: #111; position: relative; display: flex; align-items: center; justify-content: center; }
-        .editor-toolbar {
+        
+        /* Custom Workflow Toolbar for Editor */
+        .editor-toolbar-custom {
             flex-shrink: 0; padding: 15px; background: var(--surface);
-            display: flex; gap: 10px; justify-content: space-around;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
         }
+        .editor-toolbar-custom button {
+            padding: 12px; border-radius: 8px; border: none; font-weight: bold; color: white; cursor: pointer;
+        }
+        .btn-save-done { background: var(--success); grid-column: span 2; }
+        .btn-save-more { background: var(--primary); }
+        .btn-retry { background: var(--secondary); }
+        .btn-exit { background: var(--danger); }
 
         /* --- Viewer Specific --- */
         .viewer-stage {
@@ -313,8 +329,11 @@
             
             <div class="field-group" id="fg-store">
                 <label>Store Number *</label>
-                <input type="text" id="storeNumber" placeholder="###" inputmode="numeric" maxlength="3" onchange="saveData()">
-                <div class="error-msg">Enter 3-digit store number</div>
+                <select id="storeNumber" onchange="saveData()">
+                    <option value="" disabled selected>Select Store...</option>
+                    <!-- Populated via JS to keep HTML clean -->
+                </select>
+                <div class="error-msg">Select a store number</div>
             </div>
 
             <div class="field-group" id="fg-date">
@@ -325,13 +344,13 @@
 
             <div class="field-group" id="fg-lead">
                 <label>Lead Name *</label>
-                <input type="text" id="leadName" placeholder="First Last" onchange="saveData()">
+                <input type="text" id="leadName" placeholder="First and Last" onchange="saveData()">
                 <div class="error-msg">Lead name required</div>
             </div>
 
             <div class="field-group" id="fg-inMgr">
                 <label>Manager Checked In With *</label>
-                <input type="text" id="checkInManager" onchange="saveData()">
+                <input type="text" id="checkInManager" class="manager-field" placeholder="First and Last" onchange="saveData()">
                 <div class="error-msg">Manager name required</div>
             </div>
         </div>
@@ -348,7 +367,7 @@
                     <div class="toggle-option selected" onclick="setToggle('beforeTaken', false)">No</div>
                 </div>
 
-                <label style="font-size: 0.85rem; margin-top: 10px;">Add Evidence Photos (Optional):</label>
+                <label style="font-size: 0.85rem; margin-top: 10px;">Add Photos</label>
                 <div class="photo-grid" id="grid-before">
                     <div class="photo-slot add-photo-btn" onclick="launchCamera('before')">
                         <span>📷</span><div>Cam</div>
@@ -368,7 +387,7 @@
                     <div class="toggle-option selected" onclick="setToggle('afterTaken', false)">No</div>
                 </div>
 
-                <label style="font-size: 0.85rem; margin-top: 10px;">Add Evidence Photos (Optional):</label>
+                <label style="font-size: 0.85rem; margin-top: 10px;">Add Photos</label>
                 <div class="photo-grid" id="grid-after">
                     <div class="photo-slot add-photo-btn" onclick="launchCamera('after')">
                         <span>📷</span><div>Cam</div>
@@ -382,13 +401,13 @@
 
             <!-- Signoff -->
             <div class="photo-section">
-                <label>Sign-Off Sheets taken? *</label>
+                <label>Photos of sign-off sheets taken? *</label>
                 <div class="toggle-group" id="tg-signoffTaken">
                     <div class="toggle-option" onclick="setToggle('signoffTaken', true)">Yes</div>
                     <div class="toggle-option selected" onclick="setToggle('signoffTaken', false)">No</div>
                 </div>
 
-                <label style="font-size: 0.85rem; margin-top: 10px;">Add Evidence Photos (Optional):</label>
+                <label style="font-size: 0.85rem; margin-top: 10px;">Add Photos</label>
                 <div class="photo-grid" id="grid-signoff">
                     <div class="photo-slot add-photo-btn" onclick="launchCamera('signoff')">
                         <span>📷</span><div>Cam</div>
@@ -441,7 +460,7 @@
 
             <div class="field-group" id="fg-outMgr">
                 <label>Manager Checked Out With *</label>
-                <input type="text" id="checkOutManager" onchange="saveData()">
+                <input type="text" id="checkOutManager" class="manager-field" placeholder="First and Last" onchange="saveData()">
                 <div class="error-msg">Manager name required</div>
             </div>
 
@@ -463,7 +482,7 @@
 
             <div class="field-group">
                 <label>General Notes</label>
-                <textarea id="notes" rows="3" placeholder="Optional notes..." onchange="saveData()"></textarea>
+                <textarea id="notes" rows="5" placeholder="Please enter details about any sets that were marked Non-Executable and please remember to ensure that exceptions must match in both PROD and SI and a comment made in the comment bubble in PROD as to why as well as recorded here" onchange="saveData()"></textarea>
             </div>
         </div>
 
@@ -472,8 +491,8 @@
             <div class="section-title">Review & Sign</div>
             
             <div class="field-group">
-                <label>Email To (Optional)</label>
-                <input type="email" id="emailTo" placeholder="manager@example.com" onchange="saveData()">
+                <label>Fred Meyer PIC who signed you out</label>
+                <input type="email" id="emailTo" placeholder="firstname.lastname@stores.fredmeyer.com" onchange="saveData()">
             </div>
 
             <div class="field-group" id="fg-sig">
@@ -515,20 +534,16 @@
         </div>
     </div>
 
-    <!-- OVERLAY: EDITOR -->
+    <!-- OVERLAY: EDITOR (Redesigned Buttons) -->
     <div id="editorOverlay" class="overlay">
-        <div class="cam-tools" style="background: var(--surface);">
-            <button class="tool-btn" onclick="closeEditor(false)">Discard</button>
-            <span style="margin: auto; font-weight: bold; color:white;">Edit Photo</span>
-            <button class="tool-btn" style="background: var(--primary);" onclick="saveEditor()">Save</button>
-        </div>
         <div class="editor-stage">
             <img id="editorImage" style="max-width: 100%; display: none;">
         </div>
-        <div class="editor-toolbar">
-            <button class="btn btn-reset" style="width:auto" onclick="editorRotate(-90)">↺</button>
-            <button class="btn btn-reset" style="width:auto" onclick="editorRotate(90)">↻</button>
-            <button class="btn btn-reset" style="width:auto" onclick="editorZoom(0.1)">🔍+</button>
+        <div class="editor-toolbar-custom">
+            <button class="btn-save-done" onclick="editorAction('save-close')">Accept & Finish</button>
+            <button class="btn-save-more" onclick="editorAction('save-more')">Accept & Add More</button>
+            <button class="btn-retry" onclick="editorAction('retry')">Discard & Retry</button>
+            <button class="btn-exit" onclick="editorAction('exit')">Exit Camera</button>
         </div>
     </div>
 
@@ -553,6 +568,19 @@
     </div>
 
     <script>
+        // --- STORE NUMBERS POPULATION ---
+        const storeList = [
+            5, 7, 11, 13, 17, 18, 19, 21, 23, 24, 25, 28, 30, 31, 35, 40, 41, 49, 50, 
+            51, 53, 60, 63, 70, 71, 75, 90, 93, 111, 122, 125, 126, 127, 135, 140, 143, 
+            150, 153, 156, 158, 163, 165, 171, 180, 185, 186, 195, 196, 198, 208, 209, 
+            210, 214, 215, 218, 220, 224, 225, 226, 227, 236, 240, 242, 255, 260, 265, 
+            281, 285, 286, 325, 328, 351, 355, 360, 372, 375, 377, 383, 390, 391, 393, 
+            417, 424, 439, 449, 457, 458, 459, 460, 462, 464, 482, 485, 486, 516, 600, 
+            603, 604, 605, 608, 613, 614, 615, 649, 650, 651, 652, 653, 654, 655, 656, 
+            657, 658, 659, 660, 661, 662, 663, 665, 667, 668, 681, 682, 683, 685, 688, 
+            691, 694
+        ];
+
         // --- STATE ---
         const state = {
             data: {
@@ -574,6 +602,15 @@
 
         // --- INIT ---
         window.addEventListener('load', () => {
+            // Populate Stores
+            const sel = document.getElementById('storeNumber');
+            storeList.forEach(n => {
+                const opt = document.createElement('option');
+                opt.value = n;
+                opt.textContent = n;
+                sel.appendChild(opt);
+            });
+
             document.getElementById('workDate').valueAsDate = new Date();
             setupSignature();
             loadSavedData();
@@ -600,14 +637,13 @@
             saveData();
         }
 
-        // --- PHOTOS SYSTEM ---
+        // --- PHOTOS SYSTEM (Advanced Workflow) ---
         async function launchCamera(category) {
             state.currentPhotoCategory = category;
             const overlay = document.getElementById('cameraOverlay');
             const video = document.getElementById('cameraFeed');
             const loader = document.getElementById('camLoader');
             
-            // Reset video state
             video.style.opacity = "0";
             loader.style.display = "block";
             
@@ -619,7 +655,6 @@
                 video.srcObject = stream;
                 overlay.classList.add('active');
                 
-                // Wait for video to actually play before showing
                 video.onloadedmetadata = () => {
                     loader.style.display = "none";
                     video.style.opacity = "1";
@@ -636,9 +671,7 @@
                     slider.max = capabilities.zoom.max;
                     slider.step = capabilities.zoom.step || 0.1;
                     slider.oninput = () => track.applyConstraints({ advanced: [{ zoom: slider.value }] });
-                } else {
-                    zoomCtrl.style.display = 'none';
-                }
+                } else { zoomCtrl.style.display = 'none'; }
 
                 document.getElementById('btnFlash').style.display = capabilities.torch ? 'block' : 'none';
 
@@ -654,7 +687,8 @@
             canvas.height = video.videoHeight;
             canvas.getContext('2d').drawImage(video, 0, 0);
             const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-            closeCamera();
+            
+            // Don't close camera here, just open editor on top
             openEditor(dataUrl);
         }
 
@@ -678,13 +712,16 @@
             state.currentPhotoCategory = category;
             if (input.files && input.files[0]) {
                 const reader = new FileReader();
-                reader.onload = (e) => openEditor(e.target.result);
+                reader.onload = (e) => {
+                    openEditor(e.target.result);
+                    // Note: File upload doesn't use camera overlay, so logic handles editor standalone
+                };
                 reader.readAsDataURL(input.files[0]);
             }
             input.value = '';
         }
 
-        // --- EDITOR ---
+        // --- EDITOR (With New Workflow Logic) ---
         function openEditor(imageUrl) {
             const overlay = document.getElementById('editorOverlay');
             const img = document.getElementById('editorImage');
@@ -695,18 +732,38 @@
             state.cropper = new Cropper(img, { viewMode: 1, dragMode: 'move', autoCropArea: 0.9, background: false });
         }
 
-        function editorRotate(deg) { if (state.cropper) state.cropper.rotate(deg); }
-        function editorZoom(ratio) { if (state.cropper) state.cropper.zoom(ratio); }
-        
-        function saveEditor() {
+        // Editor Actions
+        function editorAction(action) {
             if (!state.cropper) return;
+            
+            if (action === 'exit') {
+                closeEditor();
+                closeCamera(); // Full exit
+                return;
+            }
+
+            if (action === 'retry') {
+                closeEditor();
+                // Camera is underneath, so it's revealed. If not active (file upload), nothing happens.
+                // Check if camera stream exists, if not (file upload), maybe prompt again? 
+                // For now, retrying in file upload mode just closes editor.
+                return;
+            }
+
+            // For save actions
             const category = state.currentPhotoCategory;
             const canvas = state.cropper.getCroppedCanvas({ maxWidth: 1200, maxHeight: 1200 });
             state.photos[category].push(canvas.toDataURL('image/jpeg', 0.8));
             setToggle(category + 'Taken', true);
-            closeEditor(true);
             renderPhotos(category);
             saveData();
+
+            closeEditor();
+
+            if (action === 'save-close') {
+                closeCamera();
+            }
+            // if 'save-more', we just close editor, camera remains active underneath
         }
         
         function closeEditor() {
@@ -740,11 +797,9 @@
             const src = state.photos[cat][idx];
             const img = document.getElementById('viewerImage');
             const overlay = document.getElementById('photoViewerOverlay');
-            
             img.src = src;
             img.style.display = 'block';
             overlay.classList.add('active');
-
             if(state.viewerCropper) state.viewerCropper.destroy();
             state.viewerCropper = new Cropper(img, {
                 viewMode: 2, dragMode: 'move', autoCrop: false, background: false, modal: true, 
@@ -769,43 +824,29 @@
             }
         }
 
-        // --- SIGNATURE (With Persistence) ---
+        // --- SIGNATURE (Persistent) ---
         function setupSignature() {
             const canvas = document.getElementById('sigCanvas');
             const container = document.getElementById('sigContainer');
             const ctx = canvas.getContext('2d');
             
-            // Function to resize canvas while keeping content
             const resizeCanvas = () => {
                 const rect = container.getBoundingClientRect();
-                
-                // 1. Check if size actually changed
                 if (canvas.width === rect.width && canvas.height === rect.height) return;
-
-                // 2. Save current content if not blank
                 const wasBlank = isCanvasBlank(canvas);
                 let savedData = null;
                 if (!wasBlank) savedData = canvas.toDataURL();
-
-                // 3. Resize
                 canvas.width = rect.width;
                 canvas.height = rect.height;
-
-                // 4. Reset Context (cleared by resize)
                 ctx.lineWidth = 2;
                 ctx.lineCap = 'round';
-
-                // 5. Restore content (scale to fit)
                 if (savedData) {
                     const img = new Image();
                     img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                     img.src = savedData;
                 }
             };
-
-            // Initial sizing
             resizeCanvas();
-            // Listen for rotation/resize
             window.addEventListener('resize', resizeCanvas);
 
             let drawing = false;
@@ -868,11 +909,11 @@
                 photos: state.photos,
                 emailTo: document.getElementById('emailTo').value
             };
-            localStorage.setItem('kompass_v25_data', JSON.stringify(d));
+            localStorage.setItem('kompass_v26_data', JSON.stringify(d));
         }
 
         function loadSavedData() {
-            const raw = localStorage.getItem('kompass_v25_data');
+            const raw = localStorage.getItem('kompass_v26_data');
             if (!raw) return;
             const d = JSON.parse(raw);
 
@@ -921,7 +962,7 @@
                 return true;
             };
 
-            if (!/^\d{3}$/.test(document.getElementById('storeNumber').value)) markError('fg-store');
+            if (!document.getElementById('storeNumber').value) markError('fg-store');
             if (!document.getElementById('workDate').value) markError('fg-date');
             req('leadName', 'fg-lead');
             req('checkInManager', 'fg-inMgr');
@@ -957,7 +998,7 @@
                 link.download = filename;
                 link.click();
 
-                // Construct Email Body Correctly
+                // Construct Email Body
                 const emailTo = getVal('emailTo');
                 const cc = "aiyana.natarisalazar@retailodyssey.com; tyson.gauthier@retailodyssey.com";
                 const subject = `KOMPASS EOD FM${store} ${dateObj.toLocaleDateString()}`;
@@ -999,7 +1040,7 @@ ${getVal('notes')}`;
 
         function resetForm() {
             if(confirm("Clear all data and photos?")) {
-                localStorage.removeItem('kompass_v25_data');
+                localStorage.removeItem('kompass_v26_data');
                 location.reload();
             }
         }
